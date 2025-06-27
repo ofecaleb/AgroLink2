@@ -79,6 +79,10 @@ export class ApiService {
     return response.json();
   }
 
+  static async verifyMarketPrice(priceId: number): Promise<void> {
+    await authenticatedRequest('POST', `/api/market-prices/${priceId}/verify`);
+  }
+
   // Community API
   static async getCommunityPosts(region?: string, limit?: number): Promise<{ post: CommunityPost; user: any }[]> {
     let url = '/api/community/posts';

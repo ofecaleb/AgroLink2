@@ -54,6 +54,25 @@ export default function MarketView() {
     },
   });
 
+  // Verify market price mutation (admin only)
+  const verifyPriceMutation = useMutation({
+    mutationFn: (priceId: number) => ApiService.verifyMarketPrice(priceId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/market-prices'] });
+      toast({
+        title: 'Price verified successfully!',
+        description: 'The market price has been approved and is now live.',
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Failed to verify price',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
   const handleSubmitPrice = () => {
     const crop = priceFormData.crop === 'other' ? priceFormData.customCrop : priceFormData.crop;
     const price = parseInt(priceFormData.price);
@@ -184,15 +203,34 @@ export default function MarketView() {
                     </div>
                   </div>
                 </div>
-                <div className="flex justify-between text-sm text-gray-500 dark:text-gray-400">
+                <div className="flex justify-between items-center text-sm text-gray-500 dark:text-gray-400">
                   <span>Updated: {new Date(price.createdAt).toLocaleDateString()}</span>
-                  <span className={`px-2 py-1 rounded text-xs ${
-                    price.isVerified 
-                      ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' 
-                      : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400'
-                  }`}>
-                    {price.isVerified ? 'Verified' : 'Pending'}
-                  </span>
+                  <div className="flex items-center space-x-2">
+                    <span className={`px-2 py-1 rounded text-xs ${
+                      price.isVerified 
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' 
+                        : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400'
+                    }`}>
+                      {price.isVerified ? 'Verified' : 'Pending'}
+                    </span>
+                    {user?.role === 'admin' && !price.isVerified && (
+                      <Button
+                        size="sm"
+                        onClick={() => verifyPriceMutation.mutate(price.id)}
+                        disabled={verifyPriceMutation.isPending}
+                        className="bg-green-600 hover:bg-green-700 text-white text-xs px-2 py-1 h-6"
+                      >
+                        {verifyPriceMutation.isPending ? (
+                          <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin"></div>
+                        ) : (
+                          <>
+                            <i className="fas fa-check mr-1"></i>
+                            Approve
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>

@@ -19,6 +19,7 @@ export default function TontineView() {
   const queryClient = useQueryClient();
   
   const [showJoinModal, setShowJoinModal] = useState(false);
+  const [modalMode, setModalMode] = useState<'create' | 'join'>('create');
   const [contributionAmount, setContributionAmount] = useState('');
   const [selectedTontine, setSelectedTontine] = useState<Tontine | null>(null);
   const [joinFormData, setJoinFormData] = useState({
@@ -153,13 +154,29 @@ export default function TontineView() {
             <p className="text-gray-600 dark:text-gray-400 mb-6">
               Join or create a tontine group to start saving with your community.
             </p>
-            <Button 
-              onClick={() => setShowJoinModal(true)}
-              className="btn-farm"
-            >
-              <i className="fas fa-plus mr-2"></i>
-              {t('joinNewText')}
-            </Button>
+            <div className="flex space-x-3">
+              <Button 
+                onClick={() => {
+                  setModalMode('create');
+                  setShowJoinModal(true);
+                }}
+                className="btn-farm flex-1"
+              >
+                <i className="fas fa-plus mr-2"></i>
+                Create Tontine
+              </Button>
+              <Button 
+                onClick={() => {
+                  setModalMode('join');
+                  setShowJoinModal(true);
+                }}
+                variant="outline"
+                className="btn-outline-farm flex-1"
+              >
+                <i className="fas fa-users mr-2"></i>
+                Join Existing
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -332,61 +349,84 @@ export default function TontineView() {
         </CardContent>
       </Card>
 
-      {/* Join New Tontine Button */}
-      <Button 
-        onClick={() => setShowJoinModal(true)}
-        className="w-full btn-farm text-lg py-4"
-      >
-        <i className="fas fa-plus mr-2"></i>
-        {t('joinNewText')}
-      </Button>
+      {/* Join New Tontine Buttons */}
+      <div className="flex space-x-3">
+        <Button 
+          onClick={() => {
+            setModalMode('create');
+            setShowJoinModal(true);
+          }}
+          className="flex-1 btn-farm text-lg py-4"
+        >
+          <i className="fas fa-plus mr-2"></i>
+          Create New Tontine
+        </Button>
+        <Button 
+          onClick={() => {
+            setModalMode('join');
+            setShowJoinModal(true);
+          }}
+          variant="outline"
+          className="flex-1 btn-outline-farm text-lg py-4"
+        >
+          <i className="fas fa-users mr-2"></i>
+          Join Existing
+        </Button>
+      </div>
 
       {/* Join Tontine Modal */}
       <Dialog open={showJoinModal} onOpenChange={setShowJoinModal}>
         <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center">
-              <i className="fas fa-users text-farm-green mr-2"></i>
-              {t('joinTontineTitle')}
+              <i className={`fas ${modalMode === 'create' ? 'fa-plus-circle' : 'fa-users'} text-farm-green mr-2`}></i>
+              {modalMode === 'create' ? 'Create New Tontine' : 'Join Existing Tontine'}
             </DialogTitle>
           </DialogHeader>
           
           <div className="space-y-4">
-            <div>
-              <Label htmlFor="group-name">{t('groupNameLabel')}</Label>
-              <Input
-                id="group-name"
-                type="text"
-                placeholder="Bamenda Farmers United"
-                value={joinFormData.name}
-                onChange={(e) => setJoinFormData(prev => ({ ...prev, name: e.target.value }))}
-                className="input-farm"
-              />
-            </div>
-            
-            <div>
-              <Label htmlFor="monthly-amount">{t('monthlyAmountLabel')}</Label>
-              <Input
-                id="monthly-amount"
-                type="number"
-                placeholder="5000"
-                value={joinFormData.monthlyContribution}
-                onChange={(e) => setJoinFormData(prev => ({ ...prev, monthlyContribution: e.target.value }))}
-                className="input-farm"
-              />
-            </div>
-            
-            <div>
-              <Label htmlFor="group-code">{t('groupCodeLabel')}</Label>
-              <Input
-                id="group-code"
-                type="text"
-                placeholder="BFU2024"
-                value={joinFormData.groupCode}
-                onChange={(e) => setJoinFormData(prev => ({ ...prev, groupCode: e.target.value }))}
-                className="input-farm"
-              />
-            </div>
+            {modalMode === 'create' ? (
+              <>
+                <div>
+                  <Label htmlFor="group-name">Tontine Group Name</Label>
+                  <Input
+                    id="group-name"
+                    type="text"
+                    placeholder="Bamenda Farmers United"
+                    value={joinFormData.name}
+                    onChange={(e) => setJoinFormData(prev => ({ ...prev, name: e.target.value }))}
+                    className="input-farm"
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="monthly-amount">Monthly Contribution Amount (CFA)</Label>
+                  <Input
+                    id="monthly-amount"
+                    type="number"
+                    placeholder="5000"
+                    value={joinFormData.monthlyContribution}
+                    onChange={(e) => setJoinFormData(prev => ({ ...prev, monthlyContribution: e.target.value }))}
+                    className="input-farm"
+                  />
+                </div>
+              </>
+            ) : (
+              <div>
+                <Label htmlFor="group-code">Tontine Group Code</Label>
+                <Input
+                  id="group-code"
+                  type="text"
+                  placeholder="Enter the code shared by group leader"
+                  value={joinFormData.groupCode}
+                  onChange={(e) => setJoinFormData(prev => ({ ...prev, groupCode: e.target.value }))}
+                  className="input-farm"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Ask your group leader for the invitation code
+                </p>
+              </div>
+            )}
             
             <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
               <h4 className="text-sm font-semibold text-yellow-800 dark:text-yellow-200 mb-2">
@@ -418,7 +458,7 @@ export default function TontineView() {
               {createTontineMutation.isPending ? (
                 <div className="loading-spinner mr-2"></div>
               ) : null}
-              {t('confirmJoin')}
+              {modalMode === 'create' ? 'Create Tontine' : 'Join Tontine'}
             </Button>
           </div>
         </DialogContent>

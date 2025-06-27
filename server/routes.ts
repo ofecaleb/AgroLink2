@@ -259,6 +259,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin route to approve market prices
+  app.post("/api/market-prices/:id/verify", authenticateToken, async (req: any, res) => {
+    try {
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Admin access required' });
+      }
+
+      const priceId = parseInt(req.params.id);
+      await storage.verifyMarketPrice(priceId, req.user.id);
+      
+      res.json({ message: 'Price verified successfully' });
+    } catch (error) {
+      console.error('Verify market price error:', error);
+      res.status(500).json({ error: 'Failed to verify price' });
+    }
+  });
+
   // Community routes
   app.get("/api/community/posts", authenticateToken, async (req: any, res) => {
     try {
