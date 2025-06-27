@@ -92,18 +92,36 @@ export default function TontineView() {
   });
 
   const handleCreateTontine = () => {
-    if (!joinFormData.name || !joinFormData.monthlyContribution) {
-      toast({
-        title: t('fillAllFields'),
-        variant: 'destructive',
-      });
-      return;
-    }
+    if (modalMode === 'create') {
+      // Creating a new tontine
+      if (!joinFormData.name || !joinFormData.monthlyContribution) {
+        toast({
+          title: 'Please fill in all fields',
+          variant: 'destructive',
+        });
+        return;
+      }
 
-    createTontineMutation.mutate({
-      name: joinFormData.name,
-      monthlyContribution: parseInt(joinFormData.monthlyContribution)
-    });
+      createTontineMutation.mutate({
+        name: joinFormData.name,
+        monthlyContribution: parseInt(joinFormData.monthlyContribution)
+      });
+    } else {
+      // Joining an existing tontine
+      if (!joinFormData.groupCode) {
+        toast({
+          title: 'Please enter the group code',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // For now, show a message that join functionality is coming soon
+      toast({
+        title: 'Join functionality coming soon',
+        description: 'Please create a new tontine for now',
+      });
+    }
   };
 
   const handlePayment = (paymentMethod: string) => {
