@@ -138,7 +138,7 @@ export const insertUserSchema = createInsertSchema(users).omit({
   lastActive: true,
 }).extend({
   pin: z.string().length(4).regex(/^\d+$/, "PIN must be 4 digits"),
-  phone: z.string().min(10, "Phone number must be at least 10 digits"),
+  phone: z.string().min(8, "Phone number must be at least 8 digits").max(15, "Phone number too long"),
 });
 
 export const insertTontineSchema = createInsertSchema(tontines).omit({
