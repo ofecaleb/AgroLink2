@@ -7,8 +7,13 @@ import { ApiService } from '../lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import type { CommunityPost } from '../types';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { formatDistanceToNow } from 'date-fns';
+import type { CommunityPost, CommunityComment } from '../types';
 
 export default function CommunityView() {
   const { user } = useAuth();
@@ -33,13 +38,14 @@ export default function CommunityView() {
       queryClient.invalidateQueries({ queryKey: ['/api/community/posts'] });
       setPostContent('');
       toast({
-        title: 'Post shared successfully!',
+        title: 'Success',
+        description: 'Post shared successfully!',
       });
     },
     onError: (error: any) => {
       toast({
-        title: 'Failed to create post',
-        description: error.message,
+        title: 'Error',
+        description: error.message || 'Failed to create post',
         variant: 'destructive',
       });
     },
@@ -53,8 +59,8 @@ export default function CommunityView() {
     },
     onError: (error: any) => {
       toast({
-        title: 'Failed to like post',
-        description: error.message,
+        title: 'Error',
+        description: error.message || 'Failed to like post',
         variant: 'destructive',
       });
     },
@@ -68,8 +74,8 @@ export default function CommunityView() {
     },
     onError: (error: any) => {
       toast({
-        title: 'Failed to unlike post',
-        description: error.message,
+        title: 'Error',
+        description: error.message || 'Failed to unlike post',
         variant: 'destructive',
       });
     },
@@ -79,32 +85,27 @@ export default function CommunityView() {
   const createCommentMutation = useMutation({
     mutationFn: ({ postId, content }: { postId: number; content: string }) => 
       ApiService.createCommunityComment(postId, content),
-    onSuccess: (_, variables) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/community/posts'] });
-      setCommentInputs(prev => ({ ...prev, [variables.postId]: '' }));
+      setCommentInputs({});
       toast({
-        title: 'Comment added successfully!',
+        title: 'Success',
+        description: 'Comment added successfully!',
       });
     },
     onError: (error: any) => {
       toast({
-        title: 'Failed to add comment',
-        description: error.message,
+        title: 'Error',
+        description: error.message || 'Failed to add comment',
         variant: 'destructive',
       });
     },
   });
 
-  // Handler functions
   const handleCreatePost = () => {
-    if (!postContent.trim()) {
-      toast({
-        title: 'Please enter some content for your post',
-        variant: 'destructive',
-      });
-      return;
+    if (postContent.trim()) {
+      createPostMutation.mutate(postContent);
     }
-    createPostMutation.mutate(postContent);
   };
 
   const handleLikePost = (postId: number, isLiked: boolean) => {
@@ -115,261 +116,274 @@ export default function CommunityView() {
     }
   };
 
-  const handleComment = (postId: number) => {
-    const content = commentInputs[postId]?.trim();
-    if (!content) {
-      toast({
-        title: 'Please enter a comment',
-        variant: 'destructive',
-      });
-      return;
+  const handleAddComment = (postId: number) => {
+    const content = commentInputs[postId];
+    if (content?.trim()) {
+      createCommentMutation.mutate({ postId, content });
     }
-    createCommentMutation.mutate({ postId, content });
   };
 
-  const handleShare = (post: any) => {
-    const shareText = `Check out this post from ${post.user.name}: "${post.content}" - Shared via AgroLink`;
-    if (navigator.share) {
-      navigator.share({
-        title: 'AgroLink Community Post',
-        text: shareText,
-        url: window.location.href,
-      });
-    } else {
-      navigator.clipboard.writeText(shareText);
+  const handleShare = async (post: any) => {
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: 'AgroLink Community Post',
+          text: post.post.content,
+          url: window.location.href,
+        });
+      } else {
+        await navigator.clipboard.writeText(`${post.post.content}\n\nShared from AgroLink Community`);
+        toast({
+          title: 'Success',
+          description: 'Post copied to clipboard!',
+        });
+      }
+    } catch (error) {
       toast({
-        title: 'Post copied to clipboard!',
-        description: 'You can now share it anywhere.',
+        title: 'Error',
+        description: 'Failed to share post',
+        variant: 'destructive',
       });
     }
   };
 
   const toggleComments = (postId: number) => {
-    setShowComments(prev => ({ ...prev, [postId]: !prev[postId] }));
-  };
-
-  const handleCommentInputChange = (postId: number, value: string) => {
-    setCommentInputs(prev => ({ ...prev, [postId]: value }));
+    setShowComments(prev => ({
+      ...prev,
+      [postId]: !prev[postId]
+    }));
   };
 
   if (postsLoading) {
     return (
       <div className="container mx-auto px-4 py-6 space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <i className="fas fa-users mr-2 text-farm-green"></i>
-              Community
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="space-y-3">
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-20 w-full" />
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+        <Skeleton className="h-8 w-48" />
+        <div className="space-y-4">
+          <Skeleton className="h-32" />
+          <Skeleton className="h-48" />
+          <Skeleton className="h-48" />
+        </div>
       </div>
     );
   }
 
-  const handlePost = () => {
-    if (!postContent.trim()) {
-      toast({
-        title: 'Please enter some content for your post',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    createPostMutation.mutate(postContent);
-  };
-
-  const getTimeAgo = (dateString: string) => {
-    const now = new Date();
-    const date = new Date(dateString);
-    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
-    
-    if (diffInHours < 1) return 'Just now';
-    if (diffInHours < 24) return `${diffInHours} hours ago`;
-    if (diffInHours < 48) return '1 day ago';
-    return `${Math.floor(diffInHours / 24)} days ago`;
-  };
-
-  const getUserInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map(word => word.charAt(0))
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
-  const getAvatarColor = (name: string) => {
-    const colors = [
-      'bg-red-500', 'bg-blue-500', 'bg-green-500', 'bg-yellow-500',
-      'bg-purple-500', 'bg-pink-500', 'bg-indigo-500', 'bg-teal-500'
-    ];
-    const index = name.charCodeAt(0) % colors.length;
-    return colors[index];
-  };
-
   return (
     <div className="container mx-auto px-4 py-6 space-y-6">
-      {/* Community Header */}
-      <div className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl p-6 text-white">
-        <h2 className="text-2xl font-bold mb-2">
-          <i className="fas fa-users mr-2"></i>
-          {t('communityHeaderTitle')}
-        </h2>
-        <p className="text-purple-100">{t('communitySubtitle')}</p>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+          Community Forum
+        </h1>
+        <Badge variant="outline" className="text-farm-green">
+          {user?.region?.charAt(0).toUpperCase() + user?.region?.slice(1)} Region
+        </Badge>
       </div>
 
       {/* Create Post */}
-      <Card className="card-farm">
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center">
-            <i className="fas fa-plus-circle text-farm-green mr-2"></i>
-            {t('createPostTitle')}
+            <i className="fas fa-pen mr-2 text-farm-green"></i>
+            Share with the Community
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <Textarea
-            placeholder={t('postPlaceholder')}
+            placeholder="Share your farming experience, ask questions, or provide advice to fellow farmers..."
             value={postContent}
             onChange={(e) => setPostContent(e.target.value)}
-            className="min-h-[100px] resize-none input-farm"
-            maxLength={500}
+            className="min-h-24"
           />
-          
-          <div className="flex items-center justify-between">
-            <div className="flex space-x-4">
-              <button 
-                className="text-gray-500 hover:text-farm-green transition-colors touch-target" 
-                title="Add photo"
-                onClick={() => toast({ title: 'Photo upload coming soon!' })}
-              >
-                <i className="fas fa-camera text-lg"></i>
-              </button>
-              <button 
-                className="text-gray-500 hover:text-farm-green transition-colors touch-target" 
-                title="Add location"
-                onClick={() => toast({ title: 'Location tagging coming soon!' })}
-              >
-                <i className="fas fa-map-marker-alt text-lg"></i>
-              </button>
-            </div>
-            <div className="flex items-center space-x-3">
-              <span className="text-sm text-gray-500">
-                {postContent.length}/500
-              </span>
-              <Button 
-                onClick={handleCreatePost}
-                disabled={!postContent.trim() || createPostMutation.isPending}
-                className="btn-farm"
-              >
-                {createPostMutation.isPending ? (
-                  <div className="loading-spinner mr-2"></div>
-                ) : (
-                  <i className="fas fa-paper-plane mr-2"></i>
-                )}
-                {t('postBtnText')}
-              </Button>
-            </div>
+          <div className="flex justify-between items-center">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              {postContent.length}/500 characters
+            </p>
+            <Button
+              onClick={handleCreatePost}
+              disabled={!postContent.trim() || createPostMutation.isPending}
+            >
+              {createPostMutation.isPending ? (
+                <>
+                  <i className="fas fa-spinner fa-spin mr-2"></i>
+                  Posting...
+                </>
+              ) : (
+                <>
+                  <i className="fas fa-share mr-2"></i>
+                  Share Post
+                </>
+              )}
+            </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Community Posts */}
-      <div className="space-y-4">
-        {postsLoading ? (
-          [...Array(3)].map((_, i) => (
-            <Card key={i} className="card-farm">
-              <CardContent className="p-6">
-                <div className="flex items-center space-x-3 mb-4">
-                  <Skeleton className="w-12 h-12 rounded-full" />
-                  <div className="space-y-2">
-                    <Skeleton className="h-4 w-32" />
-                    <Skeleton className="h-3 w-24" />
-                  </div>
-                </div>
-                <Skeleton className="h-20 w-full mb-4" />
-                <div className="flex space-x-6">
-                  <Skeleton className="h-8 w-16" />
-                  <Skeleton className="h-8 w-16" />
-                  <Skeleton className="h-8 w-16" />
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        ) : posts.length === 0 ? (
-          <Card className="card-farm text-center py-12">
-            <CardContent>
-              <div className="w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-6">
-                <i className="fas fa-users text-gray-400 text-3xl"></i>
-              </div>
-              <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-2">
-                No posts yet
-              </h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-6">
-                Be the first to share something with your farming community!
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          posts.map((postData: any) => (
-            <Card key={postData.post.id} className="card-farm">
-              <CardContent className="p-6">
-                <div className="flex items-center space-x-3 mb-4">
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center ${getAvatarColor(postData.user.name)}`}>
-                    <span className="text-white font-semibold">
-                      {getUserInitials(postData.user.name)}
-                    </span>
-                  </div>
-                  <div>
-                    <div className="font-semibold text-gray-800 dark:text-white">
-                      {postData.user.name}
-                    </div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">
-                      {postData.user.region} • {getTimeAgo(postData.post.createdAt)}
+      {/* Posts Feed */}
+      {posts.length === 0 ? (
+        <Card>
+          <CardContent className="text-center py-12">
+            <i className="fas fa-comments text-gray-400 text-4xl mb-4"></i>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+              No Posts Yet
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+              Be the first to share something with your community!
+            </p>
+            <Button onClick={() => document.querySelector('textarea')?.focus()}>
+              Create First Post
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-6">
+          {posts.map((postData: any) => {
+            const post = postData.post;
+            const author = postData.user;
+            const isLiked = post.isLiked || false;
+            const likesCount = post.likesCount || 0;
+            const commentsCount = post.commentsCount || 0;
+
+            return (
+              <Card key={post.id} className="overflow-hidden">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start space-x-3">
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage src={author?.avatar} />
+                      <AvatarFallback className="bg-farm-green text-white">
+                        {author?.name?.charAt(0).toUpperCase() || 'U'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2">
+                        <h3 className="font-medium text-gray-900 dark:text-white">
+                          {author?.name || 'Anonymous Farmer'}
+                        </h3>
+                        <Badge variant="secondary" className="text-xs">
+                          {author?.region?.charAt(0).toUpperCase() + author?.region?.slice(1)}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
+                      </p>
                     </div>
                   </div>
-                </div>
-                <p className="text-gray-700 dark:text-gray-300 mb-4 whitespace-pre-wrap">
-                  {postData.post.content}
-                </p>
-                <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
-                  <div className="flex space-x-6">
-                    <button 
-                      className="flex items-center space-x-2 text-gray-500 hover:text-farm-green transition-colors touch-target"
-                      onClick={() => toast({ title: 'Likes coming soon!' })}
-                    >
-                      <i className="fas fa-thumbs-up"></i>
-                      <span>{postData.post.likes}</span>
-                    </button>
-                    <button 
-                      className="flex items-center space-x-2 text-gray-500 hover:text-farm-green transition-colors touch-target"
-                      onClick={() => toast({ title: 'Comments coming soon!' })}
-                    >
-                      <i className="fas fa-comment"></i>
-                      <span>{postData.post.comments}</span>
-                    </button>
-                    <button 
-                      className="flex items-center space-x-2 text-gray-500 hover:text-farm-green transition-colors touch-target"
-                      onClick={() => toast({ title: 'Sharing coming soon!' })}
-                    >
-                      <i className="fas fa-share"></i>
-                      <span>Share</span>
-                    </button>
+                </CardHeader>
+
+                <CardContent className="space-y-4">
+                  {/* Post Content */}
+                  <p className="text-gray-900 dark:text-white leading-relaxed">
+                    {post.content}
+                  </p>
+
+                  {/* Post Actions */}
+                  <div className="flex items-center justify-between pt-2">
+                    <div className="flex items-center space-x-6">
+                      <button
+                        onClick={() => handleLikePost(post.id, isLiked)}
+                        className={`flex items-center space-x-2 text-sm transition-colors ${
+                          isLiked 
+                            ? 'text-red-600 hover:text-red-700' 
+                            : 'text-gray-600 dark:text-gray-400 hover:text-red-600'
+                        }`}
+                        disabled={likePostMutation.isPending || unlikePostMutation.isPending}
+                      >
+                        <i className={`fas fa-heart ${isLiked ? 'text-red-600' : ''}`}></i>
+                        <span>{likesCount} {likesCount === 1 ? 'Like' : 'Likes'}</span>
+                      </button>
+
+                      <button
+                        onClick={() => toggleComments(post.id)}
+                        className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400 hover:text-blue-600 transition-colors"
+                      >
+                        <i className="fas fa-comment"></i>
+                        <span>{commentsCount} {commentsCount === 1 ? 'Comment' : 'Comments'}</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleShare(postData)}
+                        className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400 hover:text-green-600 transition-colors"
+                      >
+                        <i className="fas fa-share"></i>
+                        <span>Share</span>
+                      </button>
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
-      </div>
+
+                  {/* Comments Section */}
+                  {showComments[post.id] && (
+                    <div className="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                      {/* Add Comment */}
+                      <div className="flex space-x-3">
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={user?.avatar} />
+                          <AvatarFallback className="bg-farm-green text-white text-xs">
+                            {user?.name?.charAt(0).toUpperCase() || 'U'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 flex space-x-2">
+                          <Input
+                            placeholder="Add a comment..."
+                            value={commentInputs[post.id] || ''}
+                            onChange={(e) => setCommentInputs(prev => ({
+                              ...prev,
+                              [post.id]: e.target.value
+                            }))}
+                            onKeyPress={(e) => {
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                handleAddComment(post.id);
+                              }
+                            }}
+                            className="flex-1"
+                          />
+                          <Button
+                            size="sm"
+                            onClick={() => handleAddComment(post.id)}
+                            disabled={!commentInputs[post.id]?.trim() || createCommentMutation.isPending}
+                          >
+                            <i className="fas fa-paper-plane"></i>
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Existing Comments */}
+                      {post.comments && post.comments.length > 0 && (
+                        <div className="space-y-3">
+                          {post.comments.map((comment: any) => (
+                            <div key={comment.id} className="flex space-x-3">
+                              <Avatar className="h-7 w-7">
+                                <AvatarImage src={comment.user?.avatar} />
+                                <AvatarFallback className="bg-gray-500 text-white text-xs">
+                                  {comment.user?.name?.charAt(0).toUpperCase() || 'U'}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1">
+                                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
+                                  <div className="flex items-center space-x-2 mb-1">
+                                    <span className="font-medium text-sm text-gray-900 dark:text-white">
+                                      {comment.user?.name || 'Anonymous'}
+                                    </span>
+                                    <span className="text-xs text-gray-600 dark:text-gray-400">
+                                      {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
+                                    </span>
+                                  </div>
+                                  <p className="text-sm text-gray-800 dark:text-gray-200">
+                                    {comment.content}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

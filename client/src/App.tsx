@@ -4,6 +4,7 @@ import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Home from "@/pages/Home";
+import ProfilePage from "./pages/ProfilePage";
 
 function App() {
   return (
@@ -12,6 +13,7 @@ function App() {
         <Toaster />
         <Switch>
           <Route path="/" component={Home} />
+          <Route path="/profile" component={ProfilePage} />
           <Route>
             <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
               <div className="text-center">

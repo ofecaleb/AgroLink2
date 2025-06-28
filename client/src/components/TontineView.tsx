@@ -1,16 +1,37 @@
 import { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useLanguage } from '../hooks/useLanguage';
-import { useToast } from '../hooks/use-toast';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ApiService } from '../lib/api';
+import { useToast } from '../hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import type { Tontine, TontinePayment } from '../types';
+
+const createTontineSchema = z.object({
+  name: z.string().min(3, 'Tontine name must be at least 3 characters'),
+  monthlyContribution: z.number().min(1000, 'Minimum contribution is 1000 XAF')
+});
+
+const joinTontineSchema = z.object({
+  inviteCode: z.string().min(6, 'Please enter a valid invite code')
+});
+
+const paymentSchema = z.object({
+  amount: z.number().min(100, 'Minimum payment is 100 XAF'),
+  paymentMethod: z.string().min(1, 'Please select a payment method')
+});
 
 export default function TontineView() {
   const { user } = useAuth();
@@ -18,42 +39,41 @@ export default function TontineView() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  const [showJoinModal, setShowJoinModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showJoinModal, setShowJoinModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [showInviteModal, setShowInviteModal] = useState(false);
   const [selectedTontine, setSelectedTontine] = useState<Tontine | null>(null);
-  const [joinFormData, setJoinFormData] = useState({
-    inviteCode: ''
-  });
-  const [createFormData, setCreateFormData] = useState({
-    name: '',
-    monthlyContribution: ''
-  });
-  const [paymentData, setPaymentData] = useState({
-    amount: '',
-    paymentMethod: 'momo'
-  });
 
   // Fetch user's tontines
-  const { data: tontines = [], isLoading: tontinesLoading } = useQuery({
+  const { data: tontines = [], isLoading } = useQuery({
     queryKey: ['/api/tontines'],
     queryFn: () => ApiService.getTontines(),
   });
 
-  // Fetch detailed tontine data for the first tontine
-  const activeTontine = tontines[0];
-  const { data: tontineDetails, isLoading: detailsLoading } = useQuery({
-    queryKey: ['/api/tontines', activeTontine?.id],
-    queryFn: () => ApiService.getTontine(activeTontine.id),
-    enabled: !!activeTontine?.id,
+  // Create tontine form
+  const createForm = useForm({
+    resolver: zodResolver(createTontineSchema),
+    defaultValues: {
+      name: '',
+      monthlyContribution: 5000
+    }
   });
 
-  // Fetch payments for active tontine
-  const { data: payments = [], isLoading: paymentsLoading } = useQuery({
-    queryKey: ['/api/tontines', activeTontine?.id, 'payments'],
-    queryFn: () => ApiService.getTontinePayments(activeTontine.id),
-    enabled: !!activeTontine?.id,
+  // Join tontine form  
+  const joinForm = useForm({
+    resolver: zodResolver(joinTontineSchema),
+    defaultValues: {
+      inviteCode: ''
+    }
+  });
+
+  // Payment form
+  const paymentForm = useForm({
+    resolver: zodResolver(paymentSchema),
+    defaultValues: {
+      amount: 0,
+      paymentMethod: ''
+    }
   });
 
   // Create tontine mutation
@@ -63,19 +83,19 @@ export default function TontineView() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/tontines'] });
       setShowCreateModal(false);
-      setCreateFormData({ name: '', monthlyContribution: '' });
+      createForm.reset();
       toast({
-        title: 'Tontine created successfully!',
-        description: 'Your new savings group is ready for members.',
+        title: 'Success',
+        description: 'Tontine created successfully!',
       });
     },
     onError: (error: any) => {
       toast({
-        title: 'Failed to create tontine',
-        description: error.message,
+        title: 'Error',
+        description: error.message || 'Failed to create tontine',
         variant: 'destructive',
       });
-    },
+    }
   });
 
   // Join tontine mutation
@@ -84,448 +104,378 @@ export default function TontineView() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/tontines'] });
       setShowJoinModal(false);
-      setJoinFormData({ inviteCode: '' });
+      joinForm.reset();
       toast({
-        title: 'Successfully joined tontine!',
-        description: 'Welcome to your new savings group.',
+        title: 'Success',
+        description: 'Successfully joined tontine!',
       });
     },
     onError: (error: any) => {
       toast({
-        title: 'Failed to join tontine',
-        description: error.message,
+        title: 'Error',
+        description: error.message || 'Failed to join tontine',
         variant: 'destructive',
       });
-    },
+    }
   });
 
-  // Payment mutation
-  const paymentMutation = useMutation({
-    mutationFn: (data: { amount: number; paymentMethod: string }) => 
-      ApiService.createTontinePayment(activeTontine.id, data),
+  // Create payment mutation
+  const createPaymentMutation = useMutation({
+    mutationFn: (data: { tontineId: number; amount: number; paymentMethod: string }) =>
+      ApiService.createTontinePayment(data.tontineId, {
+        amount: data.amount,
+        paymentMethod: data.paymentMethod
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/tontines'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/tontines', activeTontine?.id, 'payments'] });
       setShowPaymentModal(false);
-      setPaymentData({ amount: '', paymentMethod: 'momo' });
+      setSelectedTontine(null);
+      paymentForm.reset();
       toast({
-        title: 'Payment successful!',
-        description: 'Your contribution has been recorded.',
+        title: 'Success',
+        description: 'Payment submitted successfully!',
       });
     },
     onError: (error: any) => {
       toast({
-        title: 'Payment failed',
-        description: error.message,
+        title: 'Error',
+        description: error.message || 'Payment failed',
         variant: 'destructive',
       });
-    },
+    }
   });
 
   // Create invite mutation
   const createInviteMutation = useMutation({
     mutationFn: (tontineId: number) => ApiService.createTontineInvite(tontineId, {}),
-    onSuccess: (data) => {
-      navigator.clipboard.writeText(data.inviteCode);
+    onSuccess: (invite) => {
+      navigator.clipboard.writeText(invite.inviteCode);
       toast({
-        title: 'Invite code created!',
-        description: 'Invite code copied to clipboard.',
+        title: 'Invite Created',
+        description: `Invite code ${invite.inviteCode} copied to clipboard!`,
       });
     },
     onError: (error: any) => {
       toast({
-        title: 'Failed to create invite',
-        description: error.message,
+        title: 'Error',
+        description: error.message || 'Failed to create invite',
         variant: 'destructive',
       });
-    },
+    }
   });
 
-  // Handlers for creating tontine
-  const handleCreateTontine = () => {
-    if (!createFormData.name || !createFormData.monthlyContribution) {
-      toast({
-        title: 'Please fill in all fields',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    createTontineMutation.mutate({
-      name: createFormData.name,
-      monthlyContribution: parseInt(createFormData.monthlyContribution)
-    });
+  const handleCreateTontine = (data: { name: string; monthlyContribution: number }) => {
+    createTontineMutation.mutate(data);
   };
 
-  // Handler for joining tontine
-  const handleJoinTontine = () => {
-    if (!joinFormData.inviteCode) {
-      toast({
-        title: 'Please enter the invite code',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    joinTontineMutation.mutate(joinFormData.inviteCode);
+  const handleJoinTontine = (data: { inviteCode: string }) => {
+    joinTontineMutation.mutate(data.inviteCode);
   };
 
-  // Handler for making payment
-  const handlePayment = () => {
-    const amount = parseInt(paymentData.amount);
-    if (!amount || amount <= 0) {
-      toast({
-        title: 'Please enter a valid amount',
-        variant: 'destructive',
+  const handleMakePayment = (data: { amount: number; paymentMethod: string }) => {
+    if (selectedTontine) {
+      createPaymentMutation.mutate({
+        tontineId: selectedTontine.id,
+        amount: data.amount,
+        paymentMethod: data.paymentMethod
       });
-      return;
     }
-
-    paymentMutation.mutate({ 
-      amount, 
-      paymentMethod: paymentData.paymentMethod 
-    });
   };
 
-  // Utility functions
-  const calculateFee = (amount: number) => Math.round(amount * 0.02);
-  const calculateTotal = (amount: number) => amount + calculateFee(amount);
+  const handleCreateInvite = (tontineId: number) => {
+    createInviteMutation.mutate(tontineId);
+  };
 
-  const currentAmount = parseInt(paymentData.amount) || 0;
-  const fee = calculateFee(currentAmount);
-  const total = calculateTotal(currentAmount);
-
-  if (tontinesLoading) {
+  if (isLoading) {
     return (
       <div className="container mx-auto px-4 py-6 space-y-6">
-        <Skeleton className="h-32 w-full rounded-xl" />
-        <Skeleton className="h-48 w-full rounded-xl" />
-        <Skeleton className="h-64 w-full rounded-xl" />
+        <Skeleton className="h-8 w-48" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Skeleton className="h-64" />
+          <Skeleton className="h-64" />
+        </div>
       </div>
     );
   }
 
-  if (!activeTontine) {
-    return (
-      <div className="container mx-auto px-4 py-6">
-        <Card className="card-farm text-center py-12">
-          <CardContent>
-            <div className="w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-6">
-              <i className="fas fa-users text-gray-400 text-3xl"></i>
-            </div>
-            <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-2">
-              No Active Tontine
+  return (
+    <div className="container mx-auto px-4 py-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+          My Tontines
+        </h1>
+        <div className="flex space-x-3">
+          <Dialog open={showJoinModal} onOpenChange={setShowJoinModal}>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <i className="fas fa-users mr-2"></i>
+                Join Group
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Join Tontine Group</DialogTitle>
+              </DialogHeader>
+              <Form {...joinForm}>
+                <form onSubmit={joinForm.handleSubmit(handleJoinTontine)} className="space-y-4">
+                  <FormField
+                    control={joinForm.control}
+                    name="inviteCode"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Invite Code</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter invite code" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button 
+                    type="submit" 
+                    className="w-full" 
+                    disabled={joinTontineMutation.isPending}
+                  >
+                    {joinTontineMutation.isPending ? 'Joining...' : 'Join Tontine'}
+                  </Button>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
+            <DialogTrigger asChild>
+              <Button>
+                <i className="fas fa-plus mr-2"></i>
+                Create Group
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New Tontine</DialogTitle>
+              </DialogHeader>
+              <Form {...createForm}>
+                <form onSubmit={createForm.handleSubmit(handleCreateTontine)} className="space-y-4">
+                  <FormField
+                    control={createForm.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Tontine Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g., Farmers Savings Group" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={createForm.control}
+                    name="monthlyContribution"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Monthly Contribution (XAF)</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            placeholder="5000"
+                            {...field}
+                            onChange={(e) => field.onChange(Number(e.target.value))}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button 
+                    type="submit" 
+                    className="w-full" 
+                    disabled={createTontineMutation.isPending}
+                  >
+                    {createTontineMutation.isPending ? 'Creating...' : 'Create Tontine'}
+                  </Button>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
+
+      {/* Tontines List */}
+      {tontines.length === 0 ? (
+        <Card>
+          <CardContent className="text-center py-12">
+            <i className="fas fa-users text-gray-400 text-4xl mb-4"></i>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+              No Tontines Yet
             </h3>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              Join or create a tontine group to start saving with your community.
+              Create your first tontine group or join an existing one to get started.
             </p>
-            <div className="flex space-x-3">
-              <Button 
-                onClick={() => {
-                  setModalMode('create');
-                  setShowJoinModal(true);
-                }}
-                className="btn-farm flex-1"
-              >
-                <i className="fas fa-plus mr-2"></i>
-                Create Tontine
+            <div className="flex justify-center space-x-4">
+              <Button onClick={() => setShowCreateModal(true)}>
+                Create Group
               </Button>
-              <Button 
-                onClick={() => {
-                  setModalMode('join');
-                  setShowJoinModal(true);
-                }}
-                variant="outline"
-                className="btn-outline-farm flex-1"
-              >
-                <i className="fas fa-users mr-2"></i>
-                Join Existing
+              <Button variant="outline" onClick={() => setShowJoinModal(true)}>
+                Join Group
               </Button>
             </div>
           </CardContent>
         </Card>
-      </div>
-    );
-  }
-
-  const paidMembers = tontineDetails?.members?.filter(m => m.hasPaidCurrentMonth).length || 0;
-  const totalMembers = tontineDetails?.members?.length || 0;
-  const progressPercentage = totalMembers > 0 ? (paidMembers / totalMembers) * 100 : 0;
-
-  return (
-    <div className="container mx-auto px-4 py-6 space-y-6">
-      {/* Tontine Status Card */}
-      <Card className="card-farm">
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-gray-800 dark:text-white">
-              <i className="fas fa-users text-farm-green mr-2"></i>
-              {activeTontine.name}
-            </h2>
-            <span className="px-3 py-1 bg-farm-green text-white text-sm font-medium rounded-full">
-              {activeTontine.status.charAt(0).toUpperCase() + activeTontine.status.slice(1)}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-6 mb-6">
-            <div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">{t('monthlyContribution')}</div>
-              <div className="text-2xl font-bold text-gray-800 dark:text-white">
-                {activeTontine.monthlyContribution.toLocaleString()} CFA
-              </div>
-            </div>
-            <div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">{t('nextPayout')}</div>
-              <div className="text-2xl font-bold text-gray-800 dark:text-white">
-                {activeTontine.nextPayoutDate ? new Date(activeTontine.nextPayoutDate).toLocaleDateString() : '15 days'}
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-600 dark:text-gray-300">{t('groupProgress')}</span>
-              <span className="text-sm font-medium text-gray-800 dark:text-white">
-                {paidMembers}/{totalMembers} members paid
-              </span>
-            </div>
-            <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
-              <div 
-                className="bg-farm-green h-2 rounded-full transition-all duration-300" 
-                style={{ width: `${progressPercentage}%` }}
-              ></div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Contribute Section */}
-      <Card className="card-farm">
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <i className="fas fa-plus-circle text-farm-green mr-2"></i>
-            {t('contributeTitle')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label htmlFor="contribution-amount">{t('amountLabel')}</Label>
-            <Input
-              id="contribution-amount"
-              type="number"
-              placeholder="5000"
-              value={contributionAmount}
-              onChange={(e) => setContributionAmount(e.target.value)}
-              className="input-farm text-lg"
-            />
-          </div>
-
-          {/* Fee Breakdown */}
-          {currentAmount > 0 && (
-            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-              <h4 className="text-sm font-semibold text-yellow-800 dark:text-yellow-200 mb-2">
-                <i className="fas fa-calculator mr-1"></i>
-                {t('feeBreakdownTitle')}
-              </h4>
-              <div className="space-y-1 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-yellow-700 dark:text-yellow-300">{t('contribution')}</span>
-                  <span className="font-medium">{currentAmount.toLocaleString()} CFA</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-yellow-700 dark:text-yellow-300">{t('platformFee')}</span>
-                  <span className="font-medium">{fee.toLocaleString()} CFA</span>
-                </div>
-                <div className="flex justify-between border-t border-yellow-200 dark:border-yellow-800 pt-1">
-                  <span className="text-yellow-800 dark:text-yellow-200 font-semibold">{t('total')}</span>
-                  <span className="font-bold">{total.toLocaleString()} CFA</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Payment Methods */}
-          <div className="space-y-3">
-            <Button 
-              onClick={() => handlePayment('momo')}
-              disabled={!currentAmount || paymentMutation.isPending}
-              className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-4 px-6 rounded-lg transition-colors"
-            >
-              <i className="fas fa-mobile-alt mr-2"></i>
-              {t('momoPayText')}
-            </Button>
-            
-            <Button 
-              onClick={() => handlePayment('orange_money')}
-              disabled={!currentAmount || paymentMutation.isPending}
-              className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-4 px-6 rounded-lg transition-colors"
-            >
-              <i className="fas fa-mobile-alt mr-2"></i>
-              {t('orangePayText')}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Group Members */}
-      <Card className="card-farm">
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <i className="fas fa-users text-farm-green mr-2"></i>
-            {t('groupMembersTitle')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {detailsLoading ? (
-            <div className="space-y-3">
-              {[...Array(3)].map((_, i) => (
-                <Skeleton key={i} className="h-16 w-full" />
-              ))}
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {tontineDetails?.members?.map((member: any) => (
-                <div key={member.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-farm-green rounded-full flex items-center justify-center">
-                      <span className="text-white font-semibold">
-                        {member.user?.name?.charAt(0).toUpperCase() || 'U'}
-                      </span>
-                    </div>
-                    <div>
-                      <div className="font-medium text-gray-800 dark:text-white">
-                        {member.user?.name || 'Unknown User'}
-                      </div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">
-                        {member.userId === activeTontine.leaderId ? 'Leader' : 'Member'}
-                      </div>
-                    </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {tontines.map((tontine: Tontine) => (
+            <Card key={tontine.id} className="border-l-4 border-l-farm-green">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span>{tontine.name}</span>
+                  <Badge variant="outline">
+                    {tontine.status}
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-gray-600 dark:text-gray-400">Monthly</p>
+                    <p className="font-semibold">{tontine.monthlyContribution.toLocaleString()} XAF</p>
                   </div>
-                  <div className="text-right">
-                    <div className={`w-3 h-3 rounded-full ${member.hasPaidCurrentMonth ? 'bg-farm-green' : 'bg-yellow-500'}`}></div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      {member.hasPaidCurrentMonth ? 'Paid' : 'Pending'}
-                    </div>
+                  <div>
+                    <p className="text-gray-600 dark:text-gray-400">Members</p>
+                    <p className="font-semibold">{tontine.memberCount || 1}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600 dark:text-gray-400">Total Fund</p>
+                    <p className="font-semibold">{((tontine.memberCount || 1) * tontine.monthlyContribution).toLocaleString()} XAF</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600 dark:text-gray-400">Next Payout</p>
+                    <p className="font-semibold text-green-600">Position {(tontine.currentPosition || 0) + 1}</p>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
-      {/* Join New Tontine Buttons */}
-      <div className="flex space-x-3">
-        <Button 
-          onClick={() => {
-            setModalMode('create');
-            setShowJoinModal(true);
-          }}
-          className="flex-1 btn-farm text-lg py-4"
-        >
-          <i className="fas fa-plus mr-2"></i>
-          Create New Tontine
-        </Button>
-        <Button 
-          onClick={() => {
-            setModalMode('join');
-            setShowJoinModal(true);
-          }}
-          variant="outline"
-          className="flex-1 btn-outline-farm text-lg py-4"
-        >
-          <i className="fas fa-users mr-2"></i>
-          Join Existing
-        </Button>
-      </div>
+                <div className="flex space-x-2">
+                  <Button 
+                    size="sm" 
+                    className="flex-1"
+                    onClick={() => {
+                      setSelectedTontine(tontine);
+                      paymentForm.setValue('amount', tontine.monthlyContribution);
+                      setShowPaymentModal(true);
+                    }}
+                  >
+                    <i className="fas fa-credit-card mr-1"></i>
+                    Pay
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => handleCreateInvite(tontine.id)}
+                    disabled={createInviteMutation.isPending}
+                  >
+                    <i className="fas fa-share mr-1"></i>
+                    Invite
+                  </Button>
+                </div>
 
-      {/* Join Tontine Modal */}
-      <Dialog open={showJoinModal} onOpenChange={setShowJoinModal}>
-        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+                {tontine.isLeader && (
+                  <Alert>
+                    <i className="fas fa-crown h-4 w-4"></i>
+                    <AlertDescription>
+                      You are the group leader
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Payment Modal */}
+      <Dialog open={showPaymentModal} onOpenChange={setShowPaymentModal}>
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle className="flex items-center">
-              <i className={`fas ${modalMode === 'create' ? 'fa-plus-circle' : 'fa-users'} text-farm-green mr-2`}></i>
-              {modalMode === 'create' ? 'Create New Tontine' : 'Join Existing Tontine'}
-            </DialogTitle>
+            <DialogTitle>Make Payment</DialogTitle>
           </DialogHeader>
-          
-          <div className="space-y-4">
-            {modalMode === 'create' ? (
-              <>
-                <div>
-                  <Label htmlFor="group-name">Tontine Group Name</Label>
-                  <Input
-                    id="group-name"
-                    type="text"
-                    placeholder="Bamenda Farmers United"
-                    value={joinFormData.name}
-                    onChange={(e) => setJoinFormData(prev => ({ ...prev, name: e.target.value }))}
-                    className="input-farm"
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="monthly-amount">Monthly Contribution Amount (CFA)</Label>
-                  <Input
-                    id="monthly-amount"
-                    type="number"
-                    placeholder="5000"
-                    value={joinFormData.monthlyContribution}
-                    onChange={(e) => setJoinFormData(prev => ({ ...prev, monthlyContribution: e.target.value }))}
-                    className="input-farm"
-                  />
-                </div>
-              </>
-            ) : (
-              <div>
-                <Label htmlFor="group-code">Tontine Group Code</Label>
-                <Input
-                  id="group-code"
-                  type="text"
-                  placeholder="Enter the code shared by group leader"
-                  value={joinFormData.groupCode}
-                  onChange={(e) => setJoinFormData(prev => ({ ...prev, groupCode: e.target.value }))}
-                  className="input-farm"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Ask your group leader for the invitation code
+          {selectedTontine && (
+            <div className="space-y-4">
+              <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+                <h3 className="font-medium">{selectedTontine.name}</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Monthly Contribution: {selectedTontine.monthlyContribution.toLocaleString()} XAF
                 </p>
               </div>
-            )}
-            
-            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-              <h4 className="text-sm font-semibold text-yellow-800 dark:text-yellow-200 mb-2">
-                <i className="fas fa-info-circle mr-1"></i>
-                {t('importantInfoTitle')}
-              </h4>
-              <ul className="text-xs text-yellow-700 dark:text-yellow-300 space-y-1">
-                <li>• Monthly contributions are binding commitments</li>
-                <li>• 2% platform fee applies to all transactions</li>
-                <li>• Group approval may be required</li>
-                <li>• Payouts follow the agreed rotation schedule</li>
-              </ul>
+              
+              <Form {...paymentForm}>
+                <form onSubmit={paymentForm.handleSubmit(handleMakePayment)} className="space-y-4">
+                  <FormField
+                    control={paymentForm.control}
+                    name="amount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Amount (XAF)</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            {...field}
+                            onChange={(e) => field.onChange(Number(e.target.value))}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={paymentForm.control}
+                    name="paymentMethod"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Payment Method</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select payment method" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="mtn_momo">MTN Mobile Money</SelectItem>
+                            <SelectItem value="orange_money">Orange Money</SelectItem>
+                            <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                    <div className="flex justify-between text-sm">
+                      <span>Amount:</span>
+                      <span>{paymentForm.watch('amount')?.toLocaleString() || 0} XAF</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Platform Fee (2%):</span>
+                      <span>{Math.round((paymentForm.watch('amount') || 0) * 0.02).toLocaleString()} XAF</span>
+                    </div>
+                    <div className="flex justify-between font-semibold border-t pt-2 mt-2">
+                      <span>Total:</span>
+                      <span>{Math.round((paymentForm.watch('amount') || 0) * 1.02).toLocaleString()} XAF</span>
+                    </div>
+                  </div>
+                  
+                  <Button 
+                    type="submit" 
+                    className="w-full" 
+                    disabled={createPaymentMutation.isPending}
+                  >
+                    {createPaymentMutation.isPending ? 'Processing...' : 'Make Payment'}
+                  </Button>
+                </form>
+              </Form>
             </div>
-          </div>
-          
-          <div className="flex space-x-3 mt-6">
-            <Button 
-              variant="outline" 
-              onClick={() => setShowJoinModal(false)}
-              className="flex-1"
-            >
-              {t('cancel')}
-            </Button>
-            <Button 
-              onClick={handleCreateTontine}
-              disabled={createTontineMutation.isPending}
-              className="flex-1 bg-farm-green hover:bg-farm-green/90"
-            >
-              {createTontineMutation.isPending ? (
-                <div className="loading-spinner mr-2"></div>
-              ) : null}
-              {modalMode === 'create' ? 'Create Tontine' : 'Join Tontine'}
-            </Button>
-          </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

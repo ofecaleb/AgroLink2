@@ -8,6 +8,7 @@ export interface User {
   language: string;
   currency: string;
   profilePicture?: string;
+  avatar?: string;
   plan: string;
   role: string;
   balance: number;
@@ -27,6 +28,9 @@ export interface Tontine {
   region: string;
   createdAt: string;
   members?: TontineMember[];
+  memberCount?: number;
+  currentPosition?: number;
+  isLeader?: boolean;
 }
 
 export interface TontineMember {
@@ -91,6 +95,8 @@ export interface WeatherData {
   windSpeed: number;
   visibility: number;
   feelsLike: number;
+  location?: string;
+  uvIndex?: number;
 }
 
 export type Language = 'en' | 'fr' | 'pid';

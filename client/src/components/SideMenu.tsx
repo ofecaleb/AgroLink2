@@ -61,18 +61,16 @@ export default function SideMenu({ isOpen, onClose, user }: SideMenuProps) {
         </div>
         
         <nav className="py-4">
-          <a 
-            href="/profile"
-            onClick={(e) => {
-              e.preventDefault();
-              window.dispatchEvent(new CustomEvent('navigate', { detail: 'profile' }));
+          <button 
+            onClick={() => {
+              window.location.href = '/profile';
               onClose();
             }}
             className="flex items-center w-full px-6 py-4 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
           >
             <i className="fas fa-user-cog w-6 mr-4 text-farm-green"></i>
             <span>Profile Settings</span>
-          </a>
+          </button>
           
           <button 
             onClick={() => setShowLanguageModal(true)}
