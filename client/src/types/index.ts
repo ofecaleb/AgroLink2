@@ -1,8 +1,13 @@
 export interface User {
   id: number;
   phone: string;
+  email?: string;
   name: string;
+  country: string;
   region: string;
+  language: string;
+  currency: string;
+  profilePicture?: string;
   plan: string;
   role: string;
   balance: number;
@@ -118,4 +123,45 @@ export interface AppState {
   currentView: string;
   sessionTimeout: NodeJS.Timeout | null;
   tourCompleted: boolean;
+}
+
+export interface SupportTicket {
+  id: number;
+  userId: number;
+  subject: string;
+  message: string;
+  status: string;
+  priority: string;
+  category: string;
+  adminResponse?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TontineInvite {
+  id: number;
+  tontineId: number;
+  inviteCode: string;
+  createdBy: number;
+  maxUses: number;
+  currentUses: number;
+  expiresAt?: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface CommunityComment {
+  id: number;
+  postId: number;
+  userId: number;
+  content: string;
+  createdAt: string;
+  user?: User;
+}
+
+export interface CommunityLike {
+  id: number;
+  postId: number;
+  userId: number;
+  createdAt: string;
 }

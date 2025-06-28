@@ -117,6 +117,22 @@ AgroLink is a comprehensive digital platform designed to empower farmers through
 
 ## Changelog
 - June 27, 2025. Initial setup
+- June 27, 2025. Major internationalization update: Multi-country support with country codes, flags, currency localization, expanded languages with search, email authentication, enhanced tontine features, community interactions, weather premium features, user profiles, and help/support system
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
+
+## Recent Update Requirements (June 27, 2025)
+### Internationalization Features
+- Multi-language support with searchable language selector
+- Country code selection with flags in alphabetical order
+- Email authentication alongside phone numbers
+- Default language/currency based on selected country
+- Dynamic cities based on country selection
+
+### Enhanced Features
+- Fully functional tontine join/create system
+- Complete community features (like, comment, share)
+- Premium weather features implementation
+- User profile management (avatar, name, password)
+- Help and support system for user complaints/contact

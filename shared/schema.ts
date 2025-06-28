@@ -6,9 +6,14 @@ import { relations } from "drizzle-orm";
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   phone: text("phone").notNull().unique(),
+  email: text("email"),
   pin: text("pin").notNull(), // Hashed PIN
   name: text("name").notNull(),
+  country: text("country").default("CM"),
   region: text("region").notNull(),
+  language: text("language").default("en"),
+  currency: text("currency").default("USD"),
+  profilePicture: text("profile_picture"),
   plan: text("plan").default("free"), // 'free' or 'premium'
   role: text("role").default("user"), // 'user' or 'admin'
   balance: integer("balance").default(0),
@@ -90,6 +95,46 @@ export const userSessions = pgTable("user_sessions", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const communityComments = pgTable("community_comments", {
+  id: serial("id").primaryKey(),
+  postId: integer("post_id").references(() => communityPosts.id),
+  userId: integer("user_id").references(() => users.id),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const communityLikes = pgTable("community_likes", {
+  id: serial("id").primaryKey(),
+  postId: integer("post_id").references(() => communityPosts.id),
+  userId: integer("user_id").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const supportTickets = pgTable("support_tickets", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id),
+  subject: text("subject").notNull(),
+  message: text("message").notNull(),
+  status: text("status").default("open"), // 'open', 'in_progress', 'resolved', 'closed'
+  priority: text("priority").default("medium"), // 'low', 'medium', 'high', 'urgent'
+  category: text("category").notNull(), // 'technical', 'billing', 'feature_request', 'bug_report', 'other'
+  adminResponse: text("admin_response"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const tontineInvites = pgTable("tontine_invites", {
+  id: serial("id").primaryKey(),
+  tontineId: integer("tontine_id").references(() => tontines.id),
+  inviteCode: text("invite_code").notNull().unique(),
+  createdBy: integer("created_by").references(() => users.id),
+  maxUses: integer("max_uses").default(10),
+  currentUses: integer("current_uses").default(0),
+  expiresAt: timestamp("expires_at"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many, one }) => ({
   tontinesAsLeader: many(tontines),
@@ -97,6 +142,9 @@ export const usersRelations = relations(users, ({ many, one }) => ({
   tontinePayments: many(tontinePayments),
   marketPrices: many(marketPrices),
   communityPosts: many(communityPosts),
+  communityComments: many(communityComments),
+  communityLikes: many(communityLikes),
+  supportTickets: many(supportTickets),
   sessions: many(userSessions),
 }));
 
@@ -107,6 +155,56 @@ export const tontinesRelations = relations(tontines, ({ many, one }) => ({
   }),
   members: many(tontineMembers),
   payments: many(tontinePayments),
+  invites: many(tontineInvites),
+}));
+
+export const communityPostsRelations = relations(communityPosts, ({ many, one }) => ({
+  user: one(users, {
+    fields: [communityPosts.userId],
+    references: [users.id],
+  }),
+  comments: many(communityComments),
+  likes: many(communityLikes),
+}));
+
+export const communityCommentsRelations = relations(communityComments, ({ one }) => ({
+  post: one(communityPosts, {
+    fields: [communityComments.postId],
+    references: [communityPosts.id],
+  }),
+  user: one(users, {
+    fields: [communityComments.userId],
+    references: [users.id],
+  }),
+}));
+
+export const communityLikesRelations = relations(communityLikes, ({ one }) => ({
+  post: one(communityPosts, {
+    fields: [communityLikes.postId],
+    references: [communityPosts.id],
+  }),
+  user: one(users, {
+    fields: [communityLikes.userId],
+    references: [users.id],
+  }),
+}));
+
+export const supportTicketsRelations = relations(supportTickets, ({ one }) => ({
+  user: one(users, {
+    fields: [supportTickets.userId],
+    references: [users.id],
+  }),
+}));
+
+export const tontineInvitesRelations = relations(tontineInvites, ({ one }) => ({
+  tontine: one(tontines, {
+    fields: [tontineInvites.tontineId],
+    references: [tontines.id],
+  }),
+  creator: one(users, {
+    fields: [tontineInvites.createdBy],
+    references: [users.id],
+  }),
 }));
 
 export const tontineMembersRelations = relations(tontineMembers, ({ one }) => ({
@@ -169,6 +267,24 @@ export const insertTontinePaymentSchema = createInsertSchema(tontinePayments).om
   transactionId: true,
 });
 
+export const insertCommunityCommentSchema = createInsertSchema(communityComments).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertSupportTicketSchema = createInsertSchema(supportTickets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  adminResponse: true,
+});
+
+export const insertTontineInviteSchema = createInsertSchema(tontineInvites).omit({
+  id: true,
+  createdAt: true,
+  currentUses: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -181,5 +297,12 @@ export type MarketPrice = typeof marketPrices.$inferSelect;
 export type InsertMarketPrice = z.infer<typeof insertMarketPriceSchema>;
 export type CommunityPost = typeof communityPosts.$inferSelect;
 export type InsertCommunityPost = z.infer<typeof insertCommunityPostSchema>;
+export type CommunityComment = typeof communityComments.$inferSelect;
+export type InsertCommunityComment = z.infer<typeof insertCommunityCommentSchema>;
+export type CommunityLike = typeof communityLikes.$inferSelect;
+export type SupportTicket = typeof supportTickets.$inferSelect;
+export type InsertSupportTicket = z.infer<typeof insertSupportTicketSchema>;
+export type TontineInvite = typeof tontineInvites.$inferSelect;
+export type InsertTontineInvite = z.infer<typeof insertTontineInviteSchema>;
 export type WeatherAlert = typeof weatherAlerts.$inferSelect;
 export type UserSession = typeof userSessions.$inferSelect;

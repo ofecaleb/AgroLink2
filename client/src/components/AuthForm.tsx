@@ -6,14 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { countries, languages, getRegionsByCountry, getLanguagesByCountry, getCurrencyByCountry, searchCountries, searchLanguages } from '../lib/countries';
 import type { Language } from '../types';
+import type { Country } from '../lib/countries';
 
 export default function AuthForm() {
   const { login, register, isLoading } = useAuth();
@@ -21,15 +19,46 @@ export default function AuthForm() {
   const { toast } = useToast();
   
   const [isRegisterMode, setIsRegisterMode] = useState(false);
+  const [selectedCountry, setSelectedCountry] = useState<Country>(countries[0]); // Default to Cameroon
+  const [countryOpen, setCountryOpen] = useState(false);
+  const [languageOpen, setLanguageOpen] = useState(false);
   const [formData, setFormData] = useState({
     phone: '',
+    email: '',
     pin: '',
     name: '',
-    region: 'bamenda'
+    country: 'CM',
+    region: 'bamenda',
+    language: 'en'
   });
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleCountryChange = (country: Country) => {
+    setSelectedCountry(country);
+    setFormData(prev => ({
+      ...prev,
+      country: country.code,
+      region: country.regions[0] || '',
+      language: country.languages[0] || 'en'
+    }));
+    setCountryOpen(false);
+  };
+
+  const handleLanguageChange = (langCode: string) => {
+    setFormData(prev => ({ ...prev, language: langCode }));
+    changeLanguage(langCode as Language);
+    setLanguageOpen(false);
+  };
+
+  const getRegionsForSelectedCountry = () => {
+    return getRegionsByCountry(formData.country);
+  };
+
+  const formatPhoneNumber = (phone: string) => {
+    return `${selectedCountry.phoneCode}${phone}`;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -107,56 +136,158 @@ export default function AuthForm() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
               {isRegisterMode && (
-                <div className="space-y-2">
-                  <Label htmlFor="name" className="flex items-center">
-                    <i className="fas fa-user mr-2 text-farm-green"></i>
-                    {t('nameLabel')}
-                  </Label>
-                  <Input
-                    id="name"
-                    type="text"
-                    placeholder="John Farmer"
-                    value={formData.name}
-                    onChange={(e) => handleInputChange('name', e.target.value)}
-                    className="input-farm text-lg"
-                  />
-                </div>
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="name" className="flex items-center">
+                      <i className="fas fa-user mr-2 text-farm-green"></i>
+                      Full Name
+                    </Label>
+                    <Input
+                      id="name"
+                      type="text"
+                      placeholder="John Farmer"
+                      value={formData.name}
+                      onChange={(e) => handleInputChange('name', e.target.value)}
+                      className="input-farm text-lg"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="country" className="flex items-center">
+                      <i className="fas fa-globe mr-2 text-farm-green"></i>
+                      Country
+                    </Label>
+                    <Popover open={countryOpen} onOpenChange={setCountryOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={countryOpen}
+                          className="w-full justify-between input-farm text-lg"
+                        >
+                          <span className="flex items-center">
+                            <span className="mr-2 text-xl">{selectedCountry.flag}</span>
+                            {selectedCountry.name}
+                          </span>
+                          <i className="fas fa-chevron-down ml-2 h-4 w-4 shrink-0 opacity-50"></i>
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-full p-0">
+                        <Command>
+                          <CommandInput placeholder="Search countries..." />
+                          <CommandEmpty>No country found.</CommandEmpty>
+                          <CommandGroup className="max-h-64 overflow-auto">
+                            {countries.map((country) => (
+                              <CommandItem
+                                key={country.code}
+                                value={country.name}
+                                onSelect={() => handleCountryChange(country)}
+                              >
+                                <span className="mr-2 text-lg">{country.flag}</span>
+                                <span className="flex-1">{country.name}</span>
+                                <span className="text-sm text-gray-500">{country.phoneCode}</span>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="email" className="flex items-center">
+                      <i className="fas fa-envelope mr-2 text-farm-green"></i>
+                      Email (Optional)
+                    </Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="farmer@example.com"
+                      value={formData.email}
+                      onChange={(e) => handleInputChange('email', e.target.value)}
+                      className="input-farm text-lg"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="region" className="flex items-center">
+                      <i className="fas fa-map-marker-alt mr-2 text-farm-green"></i>
+                      Region/City
+                    </Label>
+                    <Select value={formData.region} onValueChange={(value) => handleInputChange('region', value)}>
+                      <SelectTrigger className="input-farm text-lg">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {getRegionsForSelectedCountry().map((region) => (
+                          <SelectItem key={region} value={region}>
+                            {region.charAt(0).toUpperCase() + region.slice(1).replace('_', ' ')}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="language" className="flex items-center">
+                      <i className="fas fa-language mr-2 text-farm-green"></i>
+                      Preferred Language
+                    </Label>
+                    <Popover open={languageOpen} onOpenChange={setLanguageOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={languageOpen}
+                          className="w-full justify-between input-farm text-lg"
+                        >
+                          {languages.find(lang => lang.code === formData.language)?.name || "Select language"}
+                          <i className="fas fa-chevron-down ml-2 h-4 w-4 shrink-0 opacity-50"></i>
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-full p-0">
+                        <Command>
+                          <CommandInput placeholder="Search languages..." />
+                          <CommandEmpty>No language found.</CommandEmpty>
+                          <CommandGroup className="max-h-64 overflow-auto">
+                            {languages.map((lang) => (
+                              <CommandItem
+                                key={lang.code}
+                                value={lang.name}
+                                onSelect={() => handleLanguageChange(lang.code)}
+                              >
+                                <span className="flex-1">{lang.name}</span>
+                                <span className="text-sm text-gray-500">{lang.nativeName}</span>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </>
               )}
               
               <div className="space-y-2">
                 <Label htmlFor="phone" className="flex items-center">
                   <i className="fas fa-phone mr-2 text-farm-green"></i>
-                  {t('phoneLabel')}
+                  Phone Number
                 </Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="+237 6XX XXX XXX"
-                  value={formData.phone}
-                  onChange={(e) => handleInputChange('phone', e.target.value)}
-                  className="input-farm text-lg"
-                />
-              </div>
-              
-              {isRegisterMode && (
-                <div className="space-y-2">
-                  <Label htmlFor="region" className="flex items-center">
-                    <i className="fas fa-map-marker-alt mr-2 text-farm-green"></i>
-                    {t('regionLabel')}
-                  </Label>
-                  <Select value={formData.region} onValueChange={(value) => handleInputChange('region', value)}>
-                    <SelectTrigger className="input-farm text-lg">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="bamenda">Bamenda</SelectItem>
-                      <SelectItem value="douala">Douala</SelectItem>
-                      <SelectItem value="yaounde">Yaoundé</SelectItem>
-                      <SelectItem value="bafoussam">Bafoussam</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="flex gap-2">
+                  <div className="flex items-center bg-gray-100 dark:bg-gray-700 px-3 rounded-md border">
+                    <span className="text-lg mr-1">{selectedCountry.flag}</span>
+                    <span className="text-sm font-medium">{selectedCountry.phoneCode}</span>
+                  </div>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    placeholder="6XX XXX XXX"
+                    value={formData.phone}
+                    onChange={(e) => handleInputChange('phone', e.target.value)}
+                    className="input-farm text-lg flex-1"
+                  />
                 </div>
-              )}
+              </div>
               
               <div className="space-y-2">
                 <Label htmlFor="pin" className="flex items-center">

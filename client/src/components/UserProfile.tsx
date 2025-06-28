@@ -1,0 +1,294 @@
+import { useState } from 'react';
+import { useAuth } from '../hooks/useAuth';
+import { useLanguage } from '../hooks/useLanguage';
+import { useToast } from '../hooks/use-toast';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
+import { countries, languages, getRegionsByCountry } from '../lib/countries';
+import { apiRequest } from '../lib/queryClient';
+
+export default function UserProfile() {
+  const { user } = useAuth();
+  const { t } = useLanguage();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [formData, setFormData] = useState({
+    name: user?.name || '',
+    email: user?.email || '',
+    phone: user?.phone || '',
+    country: user?.country || 'CM',
+    region: user?.region || '',
+    language: user?.language || 'en',
+    profilePicture: user?.profilePicture || ''
+  });
+
+  const updateProfileMutation = useMutation({
+    mutationFn: (data: any) => apiRequest('/api/user/profile', {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/user/profile'] });
+      setIsEditing(false);
+      toast({
+        title: 'Profile updated successfully!',
+        description: 'Your information has been saved.',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to update profile',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSave = () => {
+    updateProfileMutation.mutate(formData);
+  };
+
+  const handleCancel = () => {
+    setFormData({
+      name: user?.name || '',
+      email: user?.email || '',
+      phone: user?.phone || '',
+      country: user?.country || 'CM',
+      region: user?.region || '',
+      language: user?.language || 'en',
+      profilePicture: user?.profilePicture || ''
+    });
+    setIsEditing(false);
+  };
+
+  const selectedCountry = countries.find(c => c.code === formData.country);
+  const availableRegions = getRegionsByCountry(formData.country);
+
+  return (
+    <div className="container mx-auto px-4 py-6 space-y-6">
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center">
+              <i className="fas fa-user-circle mr-2 text-farm-green"></i>
+              User Profile
+            </CardTitle>
+            {!isEditing ? (
+              <Button onClick={() => setIsEditing(true)} variant="outline">
+                <i className="fas fa-edit mr-2"></i>
+                Edit Profile
+              </Button>
+            ) : (
+              <div className="flex gap-2">
+                <Button onClick={handleCancel} variant="outline">
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleSave} 
+                  disabled={updateProfileMutation.isPending}
+                  className="bg-farm-green hover:bg-farm-green/90"
+                >
+                  {updateProfileMutation.isPending ? (
+                    <div className="loading-spinner mr-2"></div>
+                  ) : (
+                    <i className="fas fa-save mr-2"></i>
+                  )}
+                  Save Changes
+                </Button>
+              </div>
+            )}
+          </div>
+        </CardHeader>
+
+        <CardContent className="space-y-6">
+          {/* Profile Picture Section */}
+          <div className="flex items-center space-x-4">
+            <Avatar className="w-20 h-20">
+              <AvatarImage src={formData.profilePicture} />
+              <AvatarFallback className="bg-farm-green text-white text-2xl">
+                {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+              </AvatarFallback>
+            </Avatar>
+            {isEditing && (
+              <div className="flex-1">
+                <Label htmlFor="profilePicture">Profile Picture URL</Label>
+                <Input
+                  id="profilePicture"
+                  type="url"
+                  placeholder="https://example.com/avatar.jpg"
+                  value={formData.profilePicture}
+                  onChange={(e) => handleInputChange('profilePicture', e.target.value)}
+                  className="input-farm"
+                />
+              </div>
+            )}
+          </div>
+
+          <Separator />
+
+          {/* Personal Information */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="name">Full Name</Label>
+              <Input
+                id="name"
+                type="text"
+                value={formData.name}
+                onChange={(e) => handleInputChange('name', e.target.value)}
+                disabled={!isEditing}
+                className="input-farm"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="email">Email Address</Label>
+              <Input
+                id="email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => handleInputChange('email', e.target.value)}
+                disabled={!isEditing}
+                className="input-farm"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone Number</Label>
+              <div className="flex gap-2">
+                <div className="flex items-center bg-gray-100 dark:bg-gray-700 px-3 rounded-md border">
+                  <span className="text-lg mr-1">{selectedCountry?.flag}</span>
+                  <span className="text-sm font-medium">{selectedCountry?.phoneCode}</span>
+                </div>
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => handleInputChange('phone', e.target.value)}
+                  disabled={!isEditing}
+                  className="input-farm flex-1"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="country">Country</Label>
+              <Select 
+                value={formData.country} 
+                onValueChange={(value) => handleInputChange('country', value)}
+                disabled={!isEditing}
+              >
+                <SelectTrigger className="input-farm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {countries.map((country) => (
+                    <SelectItem key={country.code} value={country.code}>
+                      <span className="flex items-center">
+                        <span className="mr-2">{country.flag}</span>
+                        {country.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="region">Region/City</Label>
+              <Select 
+                value={formData.region} 
+                onValueChange={(value) => handleInputChange('region', value)}
+                disabled={!isEditing}
+              >
+                <SelectTrigger className="input-farm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableRegions.map((region) => (
+                    <SelectItem key={region} value={region}>
+                      {region.charAt(0).toUpperCase() + region.slice(1).replace('_', ' ')}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="language">Preferred Language</Label>
+              <Select 
+                value={formData.language} 
+                onValueChange={(value) => handleInputChange('language', value)}
+                disabled={!isEditing}
+              >
+                <SelectTrigger className="input-farm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {languages.map((lang) => (
+                    <SelectItem key={lang.code} value={lang.code}>
+                      {lang.name} ({lang.nativeName})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Account Information */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Account Balance</Label>
+              <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-md">
+                <span className="text-lg font-semibold text-farm-green">
+                  {selectedCountry?.currency === 'XAF' ? 'FCFA' : selectedCountry?.currency} {user?.balance?.toLocaleString() || '0'}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Account Type</Label>
+              <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-md flex items-center justify-between">
+                <span className="capitalize">{user?.plan || 'Free'} Plan</span>
+                {user?.plan === 'free' && (
+                  <Button size="sm" className="bg-purple-600 hover:bg-purple-700">
+                    <i className="fas fa-crown mr-1"></i>
+                    Upgrade
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Member Since</Label>
+              <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-md">
+                {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Unknown'}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Last Active</Label>
+              <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-md">
+                {user?.lastActive ? new Date(user.lastActive).toLocaleDateString() : 'Unknown'}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

@@ -115,4 +115,50 @@ export class ApiService {
     const response = await authenticatedRequest('GET', url);
     return response.json();
   }
+
+  // User profile management
+  static async updateUserProfile(data: Partial<User>): Promise<User> {
+    const response = await authenticatedRequest('PUT', '/api/user/profile', data);
+    return response.json();
+  }
+
+  // Support tickets
+  static async createSupportTicket(data: { subject: string; message: string; category: string; priority: string }): Promise<SupportTicket> {
+    const response = await authenticatedRequest('POST', '/api/support/tickets', data);
+    return response.json();
+  }
+
+  static async getSupportTickets(): Promise<SupportTicket[]> {
+    const response = await authenticatedRequest('GET', '/api/support/tickets');
+    return response.json();
+  }
+
+  // Community interactions
+  static async createCommunityComment(postId: number, content: string): Promise<CommunityComment> {
+    const response = await authenticatedRequest('POST', '/api/community/comments', { postId, content });
+    return response.json();
+  }
+
+  static async getPostComments(postId: number): Promise<CommunityComment[]> {
+    const response = await authenticatedRequest('GET', `/api/community/posts/${postId}/comments`);
+    return response.json();
+  }
+
+  static async likePost(postId: number): Promise<void> {
+    await authenticatedRequest('POST', `/api/community/posts/${postId}/like`);
+  }
+
+  static async unlikePost(postId: number): Promise<void> {
+    await authenticatedRequest('DELETE', `/api/community/posts/${postId}/unlike`);
+  }
+
+  // Tontine invites
+  static async createTontineInvite(tontineId: number, data: { maxUses?: number; expiresAt?: string }): Promise<TontineInvite> {
+    const response = await authenticatedRequest('POST', '/api/tontine-invites', { tontineId, ...data });
+    return response.json();
+  }
+
+  static async joinTontineByCode(inviteCode: string): Promise<void> {
+    await authenticatedRequest('POST', '/api/tontine-invites/join', { inviteCode });
+  }
 }
