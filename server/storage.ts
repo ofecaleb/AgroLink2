@@ -280,16 +280,27 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getCommunityPosts(region: string, limit: number = 20): Promise<any[]> {
-    return await db
+    const postsWithCounts = await db
       .select({
         post: communityPosts,
-        user: users
+        user: users,
+        likesCount: sql<number>`(SELECT COUNT(*) FROM ${communityLikes} WHERE ${communityLikes.postId} = ${communityPosts.id})`,
+        commentsCount: sql<number>`(SELECT COUNT(*) FROM ${communityComments} WHERE ${communityComments.postId} = ${communityPosts.id})`
       })
       .from(communityPosts)
       .innerJoin(users, eq(communityPosts.userId, users.id))
       .where(eq(communityPosts.region, region))
       .orderBy(desc(communityPosts.createdAt))
       .limit(limit);
+
+    return postsWithCounts.map(row => ({
+      post: {
+        ...row.post,
+        likes: row.likesCount,
+        comments: row.commentsCount
+      },
+      user: row.user
+    }));
   }
 
   async createTontineInvite(invite: InsertTontineInvite): Promise<TontineInvite> {

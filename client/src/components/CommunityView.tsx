@@ -175,7 +175,7 @@ export default function CommunityView() {
           Community Forum
         </h1>
         <Badge variant="outline" className="text-farm-green">
-          {user?.region?.charAt(0).toUpperCase() + user?.region?.slice(1)} Region
+          {user?.region ? user.region.charAt(0).toUpperCase() + user.region.slice(1) : 'Unknown'} Region
         </Badge>
       </div>
 
@@ -240,8 +240,8 @@ export default function CommunityView() {
             const post = postData.post;
             const author = postData.user;
             const isLiked = post.isLiked || false;
-            const likesCount = post.likesCount || 0;
-            const commentsCount = post.commentsCount || 0;
+            const likesCount = post.likes || 0;
+            const commentsCount = post.comments || 0;
 
             return (
               <Card key={post.id} className="overflow-hidden">

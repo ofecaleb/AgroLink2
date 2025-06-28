@@ -40,19 +40,25 @@ export default function UserProfile() {
   });
 
   const updateProfileMutation = useMutation({
-    mutationFn: (data: any) => ApiService.updateUserProfile(data),
-    onSuccess: () => {
+    mutationFn: async (data: any) => {
+      console.log('Updating profile with data:', data);
+      return await ApiService.updateUserProfile(data);
+    },
+    onSuccess: (updatedUser) => {
+      console.log('Profile update successful:', updatedUser);
       queryClient.invalidateQueries({ queryKey: ['/api/user/profile'] });
+      queryClient.invalidateQueries({ queryKey: ['auth'] });
       setIsEditing(false);
       toast({
-        title: 'Profile updated successfully!',
-        description: 'Your information has been saved.',
+        title: 'Success',
+        description: 'Profile updated successfully!',
       });
     },
     onError: (error: any) => {
+      console.error('Profile update failed:', error);
       toast({
-        title: 'Failed to update profile',
-        description: error.message,
+        title: 'Error',
+        description: error.message || 'Failed to update profile',
         variant: 'destructive',
       });
     },
