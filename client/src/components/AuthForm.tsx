@@ -22,6 +22,8 @@ export default function AuthForm() {
   const [selectedCountry, setSelectedCountry] = useState<Country>(countries[0]); // Default to Cameroon
   const [countryOpen, setCountryOpen] = useState(false);
   const [languageOpen, setLanguageOpen] = useState(false);
+  const [countrySearch, setCountrySearch] = useState('');
+  const [languageSearch, setLanguageSearch] = useState('');
   const [formData, setFormData] = useState({
     phone: '',
     email: '',
@@ -31,6 +33,10 @@ export default function AuthForm() {
     region: 'bamenda',
     language: 'en'
   });
+
+  // Filter countries and languages based on search
+  const filteredCountries = countrySearch ? searchCountries(countrySearch) : countries;
+  const filteredLanguages = languageSearch ? searchLanguages(languageSearch) : languages;
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -44,13 +50,18 @@ export default function AuthForm() {
       region: country.regions[0] || '',
       language: country.languages[0] || 'en'
     }));
+    // Auto-set language and currency based on country
+    const defaultLanguage = country.languages[0] || 'en';
+    changeLanguage(defaultLanguage as Language);
     setCountryOpen(false);
+    setCountrySearch('');
   };
 
   const handleLanguageChange = (langCode: string) => {
     setFormData(prev => ({ ...prev, language: langCode }));
     changeLanguage(langCode as Language);
     setLanguageOpen(false);
+    setLanguageSearch('');
   };
 
   const getRegionsForSelectedCountry = () => {
@@ -174,10 +185,16 @@ export default function AuthForm() {
                       </PopoverTrigger>
                       <PopoverContent className="w-full p-0">
                         <Command>
-                          <CommandInput placeholder="Search countries..." />
+                          <CommandInput 
+                            placeholder="Search countries..." 
+                            value={countrySearch}
+                            onValueChange={setCountrySearch}
+                          />
                           <CommandEmpty>No country found.</CommandEmpty>
                           <CommandGroup className="max-h-64 overflow-auto">
-                            {countries.map((country) => (
+                            {filteredCountries
+                              .sort((a, b) => a.name.localeCompare(b.name))
+                              .map((country) => (
                               <CommandItem
                                 key={country.code}
                                 value={country.name}
@@ -247,10 +264,16 @@ export default function AuthForm() {
                       </PopoverTrigger>
                       <PopoverContent className="w-full p-0">
                         <Command>
-                          <CommandInput placeholder="Search languages..." />
+                          <CommandInput 
+                            placeholder="Search languages..." 
+                            value={languageSearch}
+                            onValueChange={setLanguageSearch}
+                          />
                           <CommandEmpty>No language found.</CommandEmpty>
                           <CommandGroup className="max-h-64 overflow-auto">
-                            {languages.map((lang) => (
+                            {filteredLanguages
+                              .sort((a, b) => a.name.localeCompare(b.name))
+                              .map((lang) => (
                               <CommandItem
                                 key={lang.code}
                                 value={lang.name}

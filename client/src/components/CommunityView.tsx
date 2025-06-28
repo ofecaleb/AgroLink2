@@ -17,6 +17,8 @@ export default function CommunityView() {
   const queryClient = useQueryClient();
   
   const [postContent, setPostContent] = useState('');
+  const [commentInputs, setCommentInputs] = useState<{[key: number]: string}>({});
+  const [showComments, setShowComments] = useState<{[key: number]: boolean}>({});
 
   // Fetch community posts
   const { data: posts = [], isLoading: postsLoading } = useQuery({
@@ -34,7 +36,7 @@ export default function CommunityView() {
         title: 'Post shared successfully!',
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast({
         title: 'Failed to create post',
         description: error.message,
@@ -43,7 +45,137 @@ export default function CommunityView() {
     },
   });
 
+  // Like post mutation
+  const likePostMutation = useMutation({
+    mutationFn: (postId: number) => ApiService.likePost(postId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/community/posts'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to like post',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Unlike post mutation
+  const unlikePostMutation = useMutation({
+    mutationFn: (postId: number) => ApiService.unlikePost(postId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/community/posts'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to unlike post',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Create comment mutation
+  const createCommentMutation = useMutation({
+    mutationFn: ({ postId, content }: { postId: number; content: string }) => 
+      ApiService.createCommunityComment(postId, content),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/community/posts'] });
+      setCommentInputs(prev => ({ ...prev, [variables.postId]: '' }));
+      toast({
+        title: 'Comment added successfully!',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to add comment',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Handler functions
   const handleCreatePost = () => {
+    if (!postContent.trim()) {
+      toast({
+        title: 'Please enter some content for your post',
+        variant: 'destructive',
+      });
+      return;
+    }
+    createPostMutation.mutate(postContent);
+  };
+
+  const handleLikePost = (postId: number, isLiked: boolean) => {
+    if (isLiked) {
+      unlikePostMutation.mutate(postId);
+    } else {
+      likePostMutation.mutate(postId);
+    }
+  };
+
+  const handleComment = (postId: number) => {
+    const content = commentInputs[postId]?.trim();
+    if (!content) {
+      toast({
+        title: 'Please enter a comment',
+        variant: 'destructive',
+      });
+      return;
+    }
+    createCommentMutation.mutate({ postId, content });
+  };
+
+  const handleShare = (post: any) => {
+    const shareText = `Check out this post from ${post.user.name}: "${post.content}" - Shared via AgroLink`;
+    if (navigator.share) {
+      navigator.share({
+        title: 'AgroLink Community Post',
+        text: shareText,
+        url: window.location.href,
+      });
+    } else {
+      navigator.clipboard.writeText(shareText);
+      toast({
+        title: 'Post copied to clipboard!',
+        description: 'You can now share it anywhere.',
+      });
+    }
+  };
+
+  const toggleComments = (postId: number) => {
+    setShowComments(prev => ({ ...prev, [postId]: !prev[postId] }));
+  };
+
+  const handleCommentInputChange = (postId: number, value: string) => {
+    setCommentInputs(prev => ({ ...prev, [postId]: value }));
+  };
+
+  if (postsLoading) {
+    return (
+      <div className="container mx-auto px-4 py-6 space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <i className="fas fa-users mr-2 text-farm-green"></i>
+              Community
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="space-y-3">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-20 w-full" />
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const handlePost = () => {
     if (!postContent.trim()) {
       toast({
         title: 'Please enter some content for your post',

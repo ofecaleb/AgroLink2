@@ -12,7 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { countries, languages, getRegionsByCountry } from '../lib/countries';
-import { apiRequest } from '../lib/queryClient';
+import { ApiService } from '../lib/api';
 
 export default function UserProfile() {
   const { user } = useAuth();
@@ -21,6 +21,8 @@ export default function UserProfile() {
   const queryClient = useQueryClient();
 
   const [isEditing, setIsEditing] = useState(false);
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [formData, setFormData] = useState({
     name: user?.name || '',
     email: user?.email || '',
@@ -30,12 +32,15 @@ export default function UserProfile() {
     language: user?.language || 'en',
     profilePicture: user?.profilePicture || ''
   });
+  
+  const [passwordData, setPasswordData] = useState({
+    currentPin: '',
+    newPin: '',
+    confirmPin: ''
+  });
 
   const updateProfileMutation = useMutation({
-    mutationFn: (data: any) => apiRequest('/api/user/profile', {
-      method: 'PUT',
-      body: JSON.stringify(data)
-    }),
+    mutationFn: (data: any) => ApiService.updateUserProfile(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/user/profile'] });
       setIsEditing(false);
@@ -53,8 +58,43 @@ export default function UserProfile() {
     },
   });
 
+  const changePasswordMutation = useMutation({
+    mutationFn: (data: any) => ApiService.updateUserProfile(data),
+    onSuccess: () => {
+      setShowPasswordChange(false);
+      setPasswordData({ currentPin: '', newPin: '', confirmPin: '' });
+      toast({
+        title: 'PIN changed successfully!',
+        description: 'Your PIN has been updated.',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to change PIN',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setAvatarFile(file);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setFormData(prev => ({ ...prev, profilePicture: e.target?.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handlePasswordChange = (field: string, value: string) => {
+    setPasswordData(prev => ({ ...prev, [field]: value }));
   };
 
   const handleSave = () => {
@@ -72,6 +112,27 @@ export default function UserProfile() {
       profilePicture: user?.profilePicture || ''
     });
     setIsEditing(false);
+  };
+
+  const handleChangePassword = () => {
+    if (passwordData.newPin !== passwordData.confirmPin) {
+      toast({
+        title: 'PINs do not match',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (passwordData.newPin.length !== 4 || !/^\d+$/.test(passwordData.newPin)) {
+      toast({
+        title: 'PIN must be exactly 4 digits',
+        variant: 'destructive',
+      });
+      return;
+    }
+    changePasswordMutation.mutate({
+      currentPin: passwordData.currentPin,
+      newPin: passwordData.newPin,
+    });
   };
 
   const selectedCountry = countries.find(c => c.code === formData.country);
@@ -123,16 +184,28 @@ export default function UserProfile() {
               </AvatarFallback>
             </Avatar>
             {isEditing && (
-              <div className="flex-1">
-                <Label htmlFor="profilePicture">Profile Picture URL</Label>
-                <Input
-                  id="profilePicture"
-                  type="url"
-                  placeholder="https://example.com/avatar.jpg"
-                  value={formData.profilePicture}
-                  onChange={(e) => handleInputChange('profilePicture', e.target.value)}
-                  className="input-farm"
-                />
+              <div className="flex-1 space-y-3">
+                <div>
+                  <Label htmlFor="profilePictureFile">Upload Picture</Label>
+                  <Input
+                    id="profilePictureFile"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarChange}
+                    className="input-farm"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="profilePicture">Or paste image URL</Label>
+                  <Input
+                    id="profilePicture"
+                    type="url"
+                    placeholder="https://example.com/avatar.jpg"
+                    value={formData.profilePicture}
+                    onChange={(e) => handleInputChange('profilePicture', e.target.value)}
+                    className="input-farm"
+                  />
+                </div>
               </div>
             )}
           </div>
@@ -287,6 +360,99 @@ export default function UserProfile() {
               </div>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Security Settings Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <i className="fas fa-shield-alt mr-2 text-farm-green"></i>
+            Security Settings
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between p-4 border rounded-lg">
+            <div>
+              <h3 className="font-medium">Change PIN</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Update your 4-digit PIN for account security
+              </p>
+            </div>
+            <Button 
+              onClick={() => setShowPasswordChange(!showPasswordChange)} 
+              variant="outline"
+            >
+              {showPasswordChange ? 'Cancel' : 'Change PIN'}
+            </Button>
+          </div>
+
+          {showPasswordChange && (
+            <div className="border rounded-lg p-4 space-y-4 bg-gray-50 dark:bg-gray-800">
+              <div className="grid gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="currentPin">Current PIN</Label>
+                  <Input
+                    id="currentPin"
+                    type="password"
+                    placeholder="••••"
+                    maxLength={4}
+                    value={passwordData.currentPin}
+                    onChange={(e) => handlePasswordChange('currentPin', e.target.value)}
+                    className="input-farm text-center tracking-widest"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="newPin">New PIN</Label>
+                  <Input
+                    id="newPin"
+                    type="password"
+                    placeholder="••••"
+                    maxLength={4}
+                    value={passwordData.newPin}
+                    onChange={(e) => handlePasswordChange('newPin', e.target.value)}
+                    className="input-farm text-center tracking-widest"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="confirmPin">Confirm New PIN</Label>
+                  <Input
+                    id="confirmPin"
+                    type="password"
+                    placeholder="••••"
+                    maxLength={4}
+                    value={passwordData.confirmPin}
+                    onChange={(e) => handlePasswordChange('confirmPin', e.target.value)}
+                    className="input-farm text-center tracking-widest"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex gap-2 pt-2">
+                <Button 
+                  onClick={() => setShowPasswordChange(false)} 
+                  variant="outline" 
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleChangePassword}
+                  disabled={changePasswordMutation.isPending}
+                  className="flex-1 bg-farm-green hover:bg-farm-green/90"
+                >
+                  {changePasswordMutation.isPending ? (
+                    <div className="loading-spinner mr-2"></div>
+                  ) : (
+                    <i className="fas fa-key mr-2"></i>
+                  )}
+                  Update PIN
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

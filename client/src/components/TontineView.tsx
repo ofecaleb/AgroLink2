@@ -19,13 +19,20 @@ export default function TontineView() {
   const queryClient = useQueryClient();
   
   const [showJoinModal, setShowJoinModal] = useState(false);
-  const [modalMode, setModalMode] = useState<'create' | 'join'>('create');
-  const [contributionAmount, setContributionAmount] = useState('');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
   const [selectedTontine, setSelectedTontine] = useState<Tontine | null>(null);
   const [joinFormData, setJoinFormData] = useState({
+    inviteCode: ''
+  });
+  const [createFormData, setCreateFormData] = useState({
     name: '',
-    monthlyContribution: '',
-    groupCode: ''
+    monthlyContribution: ''
+  });
+  const [paymentData, setPaymentData] = useState({
+    amount: '',
+    paymentMethod: 'momo'
   });
 
   // Fetch user's tontines
@@ -55,15 +62,37 @@ export default function TontineView() {
       ApiService.createTontine(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/tontines'] });
-      setShowJoinModal(false);
-      setJoinFormData({ name: '', monthlyContribution: '', groupCode: '' });
+      setShowCreateModal(false);
+      setCreateFormData({ name: '', monthlyContribution: '' });
       toast({
         title: 'Tontine created successfully!',
+        description: 'Your new savings group is ready for members.',
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast({
         title: 'Failed to create tontine',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Join tontine mutation
+  const joinTontineMutation = useMutation({
+    mutationFn: (inviteCode: string) => ApiService.joinTontineByCode(inviteCode),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tontines'] });
+      setShowJoinModal(false);
+      setJoinFormData({ inviteCode: '' });
+      toast({
+        title: 'Successfully joined tontine!',
+        description: 'Welcome to your new savings group.',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to join tontine',
         description: error.message,
         variant: 'destructive',
       });
@@ -77,12 +106,14 @@ export default function TontineView() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/tontines'] });
       queryClient.invalidateQueries({ queryKey: ['/api/tontines', activeTontine?.id, 'payments'] });
-      setContributionAmount('');
+      setShowPaymentModal(false);
+      setPaymentData({ amount: '', paymentMethod: 'momo' });
       toast({
-        title: t('paymentSuccess'),
+        title: 'Payment successful!',
+        description: 'Your contribution has been recorded.',
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast({
         title: 'Payment failed',
         description: error.message,
@@ -91,41 +122,57 @@ export default function TontineView() {
     },
   });
 
-  const handleCreateTontine = () => {
-    if (modalMode === 'create') {
-      // Creating a new tontine
-      if (!joinFormData.name || !joinFormData.monthlyContribution) {
-        toast({
-          title: 'Please fill in all fields',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      createTontineMutation.mutate({
-        name: joinFormData.name,
-        monthlyContribution: parseInt(joinFormData.monthlyContribution)
-      });
-    } else {
-      // Joining an existing tontine
-      if (!joinFormData.groupCode) {
-        toast({
-          title: 'Please enter the group code',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      // For now, show a message that join functionality is coming soon
+  // Create invite mutation
+  const createInviteMutation = useMutation({
+    mutationFn: (tontineId: number) => ApiService.createTontineInvite(tontineId, {}),
+    onSuccess: (data) => {
+      navigator.clipboard.writeText(data.inviteCode);
       toast({
-        title: 'Join functionality coming soon',
-        description: 'Please create a new tontine for now',
+        title: 'Invite code created!',
+        description: 'Invite code copied to clipboard.',
       });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to create invite',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Handlers for creating tontine
+  const handleCreateTontine = () => {
+    if (!createFormData.name || !createFormData.monthlyContribution) {
+      toast({
+        title: 'Please fill in all fields',
+        variant: 'destructive',
+      });
+      return;
     }
+
+    createTontineMutation.mutate({
+      name: createFormData.name,
+      monthlyContribution: parseInt(createFormData.monthlyContribution)
+    });
   };
 
-  const handlePayment = (paymentMethod: string) => {
-    const amount = parseInt(contributionAmount);
+  // Handler for joining tontine
+  const handleJoinTontine = () => {
+    if (!joinFormData.inviteCode) {
+      toast({
+        title: 'Please enter the invite code',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    joinTontineMutation.mutate(joinFormData.inviteCode);
+  };
+
+  // Handler for making payment
+  const handlePayment = () => {
+    const amount = parseInt(paymentData.amount);
     if (!amount || amount <= 0) {
       toast({
         title: 'Please enter a valid amount',
@@ -134,17 +181,17 @@ export default function TontineView() {
       return;
     }
 
-    toast({
-      title: t('paymentProcessing'),
+    paymentMutation.mutate({ 
+      amount, 
+      paymentMethod: paymentData.paymentMethod 
     });
-
-    paymentMutation.mutate({ amount, paymentMethod });
   };
 
+  // Utility functions
   const calculateFee = (amount: number) => Math.round(amount * 0.02);
   const calculateTotal = (amount: number) => amount + calculateFee(amount);
 
-  const currentAmount = parseInt(contributionAmount) || 0;
+  const currentAmount = parseInt(paymentData.amount) || 0;
   const fee = calculateFee(currentAmount);
   const total = calculateTotal(currentAmount);
 

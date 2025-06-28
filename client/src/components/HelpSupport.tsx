@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
-import { apiRequest } from '../lib/queryClient';
+import { ApiService } from '../lib/api';
 import type { SupportTicket } from '../types';
 
 export default function HelpSupport() {
@@ -30,15 +30,12 @@ export default function HelpSupport() {
   // Fetch user's support tickets
   const { data: tickets = [], isLoading } = useQuery({
     queryKey: ['/api/support/tickets'],
-    queryFn: () => apiRequest('/api/support/tickets'),
+    queryFn: () => ApiService.getSupportTickets(),
   });
 
   // Create support ticket mutation
   const createTicketMutation = useMutation({
-    mutationFn: (data: any) => apiRequest('/api/support/tickets', {
-      method: 'POST',
-      body: JSON.stringify(data)
-    }),
+    mutationFn: (data: any) => ApiService.createSupportTicket(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/support/tickets'] });
       setTicketData({ subject: '', message: '', category: 'technical', priority: 'medium' });
