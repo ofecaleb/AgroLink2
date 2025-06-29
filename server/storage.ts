@@ -42,6 +42,7 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, data: Partial<User>): Promise<User>;
   updateUserLastActive(id: number): Promise<void>;
+  searchUsers(query: string): Promise<User[]>;
   
   // Session management
   createSession(userId: number, sessionToken: string, expiresAt: Date): Promise<UserSession>;
@@ -446,6 +447,14 @@ export class DatabaseStorage implements IStorage {
         eq(weatherAlerts.isActive, true)
       ))
       .orderBy(desc(weatherAlerts.createdAt));
+  }
+
+  async searchUsers(query: string): Promise<User[]> {
+    const searchResults = await db
+      .select()
+      .from(users)
+      .where(sql`${users.name} ILIKE ${"%" + query + "%"}`);
+    return searchResults;
   }
 }
 

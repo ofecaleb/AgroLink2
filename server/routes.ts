@@ -516,6 +516,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // User search for invites
+  app.get("/api/users/search", authenticateToken, async (req: any, res) => {
+    try {
+      const query = req.query.q;
+      
+      if (!query || query.length < 2) {
+        return res.status(400).json({ error: 'Search query must be at least 2 characters' });
+      }
+
+      const users = await storage.searchUsers(query);
+      res.json(users);
+    } catch (error) {
+      console.error('User search error:', error);
+      res.status(500).json({ error: 'Failed to search users' });
+    }
+  });
+
+  // Direct invite by user ID
+  app.post("/api/tontines/:id/invite-user", authenticateToken, async (req: any, res) => {
+    try {
+      const tontineId = parseInt(req.params.id);
+      const { userId } = req.body;
+      
+      if (!userId) {
+        return res.status(400).json({ error: 'User ID is required' });
+      }
+
+      // Check if user is the leader of this tontine
+      const tontine = await storage.getTontineWithMembers(tontineId);
+      if (!tontine || tontine.leaderId !== req.user.id) {
+        return res.status(403).json({ error: 'Only the tontine leader can invite users' });
+      }
+
+      // Check if user is already a member
+      const isMember = tontine.members?.some((member: any) => member.userId === userId);
+      if (isMember) {
+        return res.status(400).json({ error: 'User is already a member of this tontine' });
+      }
+
+      // Create invite for the specific user
+      const invite = await storage.createTontineInvite({
+        tontineId,
+        createdBy: req.user.id,
+        inviteCode: `DIRECT_${Date.now()}_${userId}`,
+        maxUses: 1,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+        isActive: true
+      });
+
+      res.status(201).json({ message: 'User invited successfully', invite });
+    } catch (error) {
+      console.error('Direct invite error:', error);
+      res.status(500).json({ error: 'Failed to invite user' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

@@ -6,7 +6,11 @@ import type {
   MarketPrice, 
   CommunityPost, 
   WeatherAlert, 
-  WeatherData 
+  WeatherData,
+  TontineInvite,
+  User,
+  SupportTicket,
+  CommunityComment
 } from '../types';
 
 // Add auth header to requests
@@ -160,5 +164,16 @@ export class ApiService {
 
   static async joinTontineByCode(inviteCode: string): Promise<void> {
     await authenticatedRequest('POST', '/api/tontine-invites/join', { inviteCode });
+  }
+
+  // User search for invites
+  static async searchUsers(query: string): Promise<User[]> {
+    const response = await authenticatedRequest('GET', `/api/users/search?q=${encodeURIComponent(query)}`);
+    return response.json();
+  }
+
+  // Direct invite by user ID
+  static async inviteUserToTontine(tontineId: number, userId: number): Promise<void> {
+    await authenticatedRequest('POST', `/api/tontines/${tontineId}/invite-user`, { userId });
   }
 }
