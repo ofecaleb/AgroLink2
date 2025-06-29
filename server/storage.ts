@@ -71,7 +71,7 @@ export interface IStorage {
   
   // Community posts
   createCommunityPost(post: InsertCommunityPost): Promise<CommunityPost>;
-  getCommunityPosts(region: string, limit?: number): Promise<any[]>;
+  getCommunityPosts(region: string, limit?: number, currentUserId?: number): Promise<any[]>;
   
   // Community interactions
   createCommunityComment(comment: InsertCommunityComment): Promise<CommunityComment>;
@@ -87,6 +87,9 @@ export interface IStorage {
   
   // Weather alerts
   getActiveWeatherAlerts(region: string): Promise<WeatherAlert[]>;
+
+  // New method to check if a user has liked a specific post
+  hasUserLikedPost(postId: number, userId: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -279,7 +282,7 @@ export class DatabaseStorage implements IStorage {
     return communityPost;
   }
 
-  async getCommunityPosts(region: string, limit: number = 20): Promise<any[]> {
+  async getCommunityPosts(region: string, limit: number = 20, currentUserId?: number): Promise<any[]> {
     const postsWithCounts = await db
       .select({
         post: communityPosts,
@@ -293,14 +296,26 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(communityPosts.createdAt))
       .limit(limit);
 
-    return postsWithCounts.map((row: { post: any; user: any; likesCount: number; commentsCount: number }) => ({
-      post: {
-        ...row.post,
-        likes: row.likesCount,
-        comments: row.commentsCount
-      },
-      user: row.user
-    }));
+    // Get comments for each post and check if current user liked each post
+    const postsWithComments = await Promise.all(
+      postsWithCounts.map(async (row: { post: any; user: any; likesCount: number; commentsCount: number }) => {
+        const comments = await this.getPostComments(row.post.id);
+        const isLiked = currentUserId ? await this.hasUserLikedPost(row.post.id, currentUserId) : false;
+        
+        return {
+          post: {
+            ...row.post,
+            likes: row.likesCount,
+            comments: row.commentsCount,
+            commentsData: comments, // Include actual comments data
+            isLiked: isLiked // Include like status for current user
+          },
+          user: row.user
+        };
+      })
+    );
+
+    return postsWithComments;
   }
 
   async createTontineInvite(invite: InsertTontineInvite): Promise<TontineInvite> {
@@ -353,10 +368,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async likePost(postId: number, userId: number): Promise<void> {
-    await db
-      .insert(communityLikes)
-      .values({ postId, userId })
-      .onConflictDoNothing();
+    // Check if user already liked this post
+    const existingLike = await db
+      .select()
+      .from(communityLikes)
+      .where(and(
+        eq(communityLikes.postId, postId),
+        eq(communityLikes.userId, userId)
+      ));
+
+    if (existingLike.length === 0) {
+      // Only insert if user hasn't liked this post before
+      await db
+        .insert(communityLikes)
+        .values({ postId, userId });
+    }
   }
 
   async unlikePost(postId: number, userId: number): Promise<void> {
@@ -366,6 +392,17 @@ export class DatabaseStorage implements IStorage {
         eq(communityLikes.postId, postId),
         eq(communityLikes.userId, userId)
       ));
+  }
+
+  async hasUserLikedPost(postId: number, userId: number): Promise<boolean> {
+    const like = await db
+      .select()
+      .from(communityLikes)
+      .where(and(
+        eq(communityLikes.postId, postId),
+        eq(communityLikes.userId, userId)
+      ));
+    return like.length > 0;
   }
 
   async createSupportTicket(ticket: InsertSupportTicket): Promise<SupportTicket> {

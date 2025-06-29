@@ -311,7 +311,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const region = req.query.region || req.user.region;
       const limit = parseInt(req.query.limit) || 20;
-      const posts = await storage.getCommunityPosts(region, limit);
+      const posts = await storage.getCommunityPosts(region, limit, req.user.id);
       res.json(posts);
     } catch (error) {
       console.error('Get community posts error:', error);

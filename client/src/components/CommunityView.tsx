@@ -347,9 +347,9 @@ export default function CommunityView() {
                       </div>
 
                       {/* Existing Comments */}
-                      {post.comments && post.comments.length > 0 && (
+                      {post.commentsData && post.commentsData.length > 0 && (
                         <div className="space-y-3">
-                          {post.comments.map((comment: any) => (
+                          {post.commentsData.map((comment: any) => (
                             <div key={comment.id} className="flex space-x-3">
                               <Avatar className="h-7 w-7">
                                 <AvatarImage src={comment.user?.avatar} />
