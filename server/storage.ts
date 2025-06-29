@@ -195,8 +195,8 @@ export class DatabaseStorage implements IStorage {
 
     const tontine = tontineData[0].tontine;
     const members = tontineData
-      .filter((row: any) => row.member && row.user)
-      .map((row: any) => ({
+      .filter((row: { member: any; user: any }) => row.member && row.user)
+      .map((row: { member: any; user: any }) => ({
         ...row.member,
         user: row.user
       }));
@@ -293,7 +293,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(communityPosts.createdAt))
       .limit(limit);
 
-    return postsWithCounts.map((row: any) => ({
+    return postsWithCounts.map((row: { post: any; user: any; likesCount: number; commentsCount: number }) => ({
       post: {
         ...row.post,
         likes: row.likesCount,
