@@ -2,7 +2,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useLanguage } from '../hooks/useLanguage';
 import { useTheme } from '../hooks/useTheme';
 import { useToast } from '../hooks/use-toast';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import type { User, Language } from '../types';
@@ -134,6 +134,9 @@ export default function SideMenu({ isOpen, onClose, user }: SideMenuProps) {
               <i className="fas fa-language text-farm-green mr-2"></i>
               {t('selectLanguageTitle')}
             </DialogTitle>
+            <DialogDescription>
+              Choose your preferred language for the application interface.
+            </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-3">

@@ -123,6 +123,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/user/profile", authenticateToken, async (req: any, res) => {
+    try {
+      const { name, email, region, language, profilePicture } = req.body;
+      
+      // Validate input
+      if (!name && !email && !region && !language && !profilePicture) {
+        return res.status(400).json({ error: 'At least one field must be provided for update' });
+      }
+
+      // Update user profile
+      const updatedUser = await storage.updateUser(req.user.id, {
+        ...(name && { name }),
+        ...(email && { email }),
+        ...(region && { region }),
+        ...(language && { language }),
+        ...(profilePicture && { profilePicture })
+      });
+
+      const { pin, ...userResponse } = updatedUser;
+      res.json(userResponse);
+    } catch (error) {
+      console.error('Profile update error:', error);
+      res.status(500).json({ error: 'Failed to update profile' });
+    }
+  });
+
   // Tontine routes
   app.post("/api/tontines", authenticateToken, async (req: any, res) => {
     try {
