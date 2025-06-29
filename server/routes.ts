@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { storage } from "./storage.js";
-import { insertUserSchema, insertTontineSchema, insertMarketPriceSchema, insertCommunityPostSchema, insertTontinePaymentSchema } from "../shared/schema.js";
+import { insertUserSchema, insertTontineSchema, insertMarketPriceSchema, insertCommunityPostSchema, insertTontinePaymentSchema, type User } from "../shared/schema.js";
 import { z } from "zod";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
@@ -125,26 +125,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/user/profile", authenticateToken, async (req: any, res) => {
     try {
-      const { name, email, region, language, profilePicture } = req.body;
+      const { name, email, country, region, language, currency, profilePicture, avatar } = req.body;
       
-      // Validate input
-      if (!name && !email && !region && !language && !profilePicture) {
-        return res.status(400).json({ error: 'At least one field must be provided for update' });
+      // Only allow updating certain fields
+      const updateData: any = {};
+      if (name !== undefined) updateData.name = name;
+      if (email !== undefined) updateData.email = email;
+      if (country !== undefined) updateData.country = country;
+      if (region !== undefined) updateData.region = region;
+      if (language !== undefined) updateData.language = language;
+      if (currency !== undefined) updateData.currency = currency;
+      if (profilePicture !== undefined) updateData.profilePicture = profilePicture;
+      if (avatar !== undefined) updateData.avatar = avatar;
+
+      if (Object.keys(updateData).length === 0) {
+        return res.status(400).json({ error: 'No valid fields to update' });
       }
 
-      // Update user profile
-      const updatedUser = await storage.updateUser(req.user.id, {
-        ...(name && { name }),
-        ...(email && { email }),
-        ...(region && { region }),
-        ...(language && { language }),
-        ...(profilePicture && { profilePicture })
-      });
-
+      const updatedUser = await storage.updateUser(req.user.id, updateData);
+      await storage.updateUserLastActive(req.user.id);
+      
       const { pin, ...userResponse } = updatedUser;
       res.json(userResponse);
     } catch (error) {
-      console.error('Profile update error:', error);
+      console.error('Update profile error:', error);
       res.status(500).json({ error: 'Failed to update profile' });
     }
   });
@@ -377,6 +381,138 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Get weather error:', error);
       res.status(500).json({ error: 'Failed to get weather data' });
+    }
+  });
+
+  // Support ticket routes
+  app.post("/api/support/tickets", authenticateToken, async (req: any, res) => {
+    try {
+      const { subject, message, category, priority } = req.body;
+      
+      if (!subject || !message || !category || !priority) {
+        return res.status(400).json({ error: 'Subject, message, category, and priority are required' });
+      }
+
+      const ticket = await storage.createSupportTicket({
+        userId: req.user.id,
+        subject,
+        message,
+        category,
+        priority,
+        status: 'open'
+      });
+
+      res.status(201).json(ticket);
+    } catch (error) {
+      console.error('Create support ticket error:', error);
+      res.status(500).json({ error: 'Failed to create support ticket' });
+    }
+  });
+
+  app.get("/api/support/tickets", authenticateToken, async (req: any, res) => {
+    try {
+      const tickets = await storage.getSupportTickets(req.user.id);
+      res.json(tickets);
+    } catch (error) {
+      console.error('Get support tickets error:', error);
+      res.status(500).json({ error: 'Failed to get support tickets' });
+    }
+  });
+
+  // Community comment routes
+  app.post("/api/community/comments", authenticateToken, async (req: any, res) => {
+    try {
+      const { postId, content } = req.body;
+      
+      if (!postId || !content) {
+        return res.status(400).json({ error: 'Post ID and content are required' });
+      }
+
+      const comment = await storage.createCommunityComment({
+        postId,
+        userId: req.user.id,
+        content
+      });
+
+      res.status(201).json(comment);
+    } catch (error) {
+      console.error('Create comment error:', error);
+      res.status(500).json({ error: 'Failed to create comment' });
+    }
+  });
+
+  app.get("/api/community/posts/:postId/comments", authenticateToken, async (req: any, res) => {
+    try {
+      const postId = parseInt(req.params.postId);
+      const comments = await storage.getPostComments(postId);
+      res.json(comments);
+    } catch (error) {
+      console.error('Get comments error:', error);
+      res.status(500).json({ error: 'Failed to get comments' });
+    }
+  });
+
+  // Community like/unlike routes
+  app.post("/api/community/posts/:postId/like", authenticateToken, async (req: any, res) => {
+    try {
+      const postId = parseInt(req.params.postId);
+      await storage.likePost(postId, req.user.id);
+      res.json({ message: 'Post liked successfully' });
+    } catch (error) {
+      console.error('Like post error:', error);
+      res.status(500).json({ error: 'Failed to like post' });
+    }
+  });
+
+  app.delete("/api/community/posts/:postId/unlike", authenticateToken, async (req: any, res) => {
+    try {
+      const postId = parseInt(req.params.postId);
+      await storage.unlikePost(postId, req.user.id);
+      res.json({ message: 'Post unliked successfully' });
+    } catch (error) {
+      console.error('Unlike post error:', error);
+      res.status(500).json({ error: 'Failed to unlike post' });
+    }
+  });
+
+  // Tontine invite routes
+  app.post("/api/tontine-invites", authenticateToken, async (req: any, res) => {
+    try {
+      const { tontineId, maxUses = 10, expiresAt } = req.body;
+      
+      if (!tontineId) {
+        return res.status(400).json({ error: 'Tontine ID is required' });
+      }
+
+      const invite = await storage.createTontineInvite({
+        tontineId,
+        createdBy: req.user.id,
+        inviteCode: `INV_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        maxUses,
+        expiresAt: expiresAt ? new Date(expiresAt) : undefined,
+        isActive: true
+      });
+
+      res.status(201).json(invite);
+    } catch (error) {
+      console.error('Create tontine invite error:', error);
+      res.status(500).json({ error: 'Failed to create tontine invite' });
+    }
+  });
+
+  app.post("/api/tontine-invites/join", authenticateToken, async (req: any, res) => {
+    try {
+      const { inviteCode } = req.body;
+      
+      if (!inviteCode) {
+        return res.status(400).json({ error: 'Invite code is required' });
+      }
+
+      await storage.useTontineInvite(inviteCode);
+      res.json({ message: 'Successfully joined tontine via invite' });
+    } catch (error) {
+      console.error('Join tontine via invite error:', error);
+      res.status(400).json({ error: 'Failed to join tontine via invite' });
     }
   });
 

@@ -20,7 +20,7 @@ let pool: Pool | null = null;
 let db: any = null;
 
 try {
-  if (!process.env.DATABASE_URL) {
+if (!process.env.DATABASE_URL) {
     console.log("⚠️  DATABASE_URL not set, using mock database");
     db = createMockDb();
   } else {
