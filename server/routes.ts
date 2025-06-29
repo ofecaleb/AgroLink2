@@ -2,8 +2,8 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { storage } from "./storage";
-import { insertUserSchema, insertTontineSchema, insertMarketPriceSchema, insertCommunityPostSchema, insertTontinePaymentSchema } from "@shared/schema";
+import { storage } from "./storage.js";
+import { insertUserSchema, insertTontineSchema, insertMarketPriceSchema, insertCommunityPostSchema, insertTontinePaymentSchema } from "../shared/schema.js";
 import { z } from "zod";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";

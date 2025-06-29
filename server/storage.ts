@@ -30,8 +30,8 @@ import {
   type InsertTontineInvite,
   type WeatherAlert,
   type UserSession
-} from "@shared/schema";
-import { db } from "./db";
+} from "../shared/schema.js";
+import { db } from "./db.js";
 import { eq, and, desc, sql } from "drizzle-orm";
 
 export interface IStorage {
@@ -195,8 +195,8 @@ export class DatabaseStorage implements IStorage {
 
     const tontine = tontineData[0].tontine;
     const members = tontineData
-      .filter(row => row.member && row.user)
-      .map(row => ({
+      .filter((row: any) => row.member && row.user)
+      .map((row: any) => ({
         ...row.member,
         user: row.user
       }));
@@ -293,7 +293,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(communityPosts.createdAt))
       .limit(limit);
 
-    return postsWithCounts.map(row => ({
+    return postsWithCounts.map((row: any) => ({
       post: {
         ...row.post,
         likes: row.likesCount,
