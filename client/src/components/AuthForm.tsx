@@ -19,6 +19,7 @@ export default function AuthForm() {
   const { toast } = useToast();
   
   const [isRegisterMode, setIsRegisterMode] = useState(false);
+  const [usePassword, setUsePassword] = useState(false); // Toggle between PIN and password
   const [selectedCountry, setSelectedCountry] = useState<Country>(countries[0]); // Default to Cameroon
   const [countryOpen, setCountryOpen] = useState(false);
   const [languageOpen, setLanguageOpen] = useState(false);
@@ -28,6 +29,7 @@ export default function AuthForm() {
     phone: '',
     email: '',
     pin: '',
+    password: '',
     name: '',
     country: 'CM',
     region: 'bamenda',
@@ -75,7 +77,7 @@ export default function AuthForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.phone || !formData.pin) {
+    if (!formData.phone) {
       toast({
         title: t('fillAllFields'),
         variant: 'destructive',
@@ -83,12 +85,23 @@ export default function AuthForm() {
       return;
     }
 
-    if (formData.pin.length !== 4 || !/^\d+$/.test(formData.pin)) {
-      toast({
-        title: t('pinLength'),
-        variant: 'destructive',
-      });
-      return;
+    // Validate PIN or password based on mode
+    if (usePassword) {
+      if (!formData.password || formData.password.length < 6) {
+        toast({
+          title: 'Password must be at least 6 characters',
+          variant: 'destructive',
+        });
+        return;
+      }
+    } else {
+      if (!formData.pin || formData.pin.length !== 4 || !/^\d+$/.test(formData.pin)) {
+        toast({
+          title: t('pinLength'),
+          variant: 'destructive',
+        });
+        return;
+      }
     }
 
     if (isRegisterMode) {
@@ -100,7 +113,13 @@ export default function AuthForm() {
         return;
       }
 
-      const result = await register(formData);
+      // Include password in registration if user chose password mode
+      const registrationData = {
+        ...formData,
+        ...(usePassword && formData.password ? { password: formData.password } : {})
+      };
+
+      const result = await register(registrationData);
       if (result.success) {
         toast({
           title: t('registrationSuccess'),
@@ -114,7 +133,8 @@ export default function AuthForm() {
         });
       }
     } else {
-      const result = await login(formData.phone, formData.pin);
+      // Login with either PIN or password
+      const result = await login(formData.phone, usePassword ? formData.password : formData.pin, usePassword);
       if (result.success) {
         toast({
           title: t('loginSuccess'),
@@ -313,19 +333,43 @@ export default function AuthForm() {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="pin" className="flex items-center">
-                  <i className="fas fa-lock mr-2 text-farm-green"></i>
-                  {isRegisterMode ? t('createPinLabel') : t('pinLabel')}
-                </Label>
-                <Input
-                  id="pin"
-                  type="password"
-                  placeholder="••••"
-                  maxLength={4}
-                  value={formData.pin}
-                  onChange={(e) => handleInputChange('pin', e.target.value)}
-                  className="input-farm text-lg text-center tracking-widest"
-                />
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="credential" className="flex items-center">
+                    <i className="fas fa-lock mr-2 text-farm-green"></i>
+                    {usePassword ? 'Password' : (isRegisterMode ? t('createPinLabel') : t('pinLabel'))}
+                  </Label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUsePassword(!usePassword);
+                      setFormData(prev => ({ ...prev, pin: '', password: '' }));
+                    }}
+                    className="text-sm text-farm-green hover:text-farm-green/80 font-medium"
+                  >
+                    Use {usePassword ? 'PIN' : 'Password'}
+                  </button>
+                </div>
+                
+                {usePassword ? (
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="Enter your password"
+                    value={formData.password}
+                    onChange={(e) => handleInputChange('password', e.target.value)}
+                    className="input-farm text-lg"
+                  />
+                ) : (
+                  <Input
+                    id="pin"
+                    type="password"
+                    placeholder="••••"
+                    maxLength={4}
+                    value={formData.pin}
+                    onChange={(e) => handleInputChange('pin', e.target.value)}
+                    className="input-farm text-lg text-center tracking-widest"
+                  />
+                )}
               </div>
 
               <div className="space-y-3">

@@ -116,4 +116,58 @@ The app will be available at `http://localhost:5000`
 
 ## License
 
-MIT License - see LICENSE file for details 
+MIT License - see LICENSE file for details
+
+# AgroLink Multi-Database Backend
+
+## Setup
+
+1. **Install dependencies:**
+   ```sh
+   npm install firebase-admin @supabase/supabase-js pocketbase
+   ```
+
+2. **Environment Variables (.env):**
+   - Add your Supabase credentials:
+     ```
+     SUPABASE_URL=your_supabase_url
+     SUPABASE_KEY=your_supabase_key
+     ```
+   - Ensure your Firebase credentials are set up as before.
+
+3. **PocketBase:**
+   - Download PocketBase from https://pocketbase.io/
+   - Run PocketBase locally:
+     ```sh
+     ./pocketbase serve
+     ```
+   - Access admin panel at http://localhost:8090/_/
+   - Create collections: `users`, `resetRequests`
+
+4. **Supabase:**
+   - Create tables: `yields`, `tontines`, `market_prices` as needed for analytics.
+
+5. **Run the backend:**
+   ```sh
+   npm run dev
+   ```
+   - The server will run on http://localhost:3001
+
+## API Endpoints
+- `GET /api/users/:id` - Get user from Firebase
+- `POST /api/users` - Create user in Firebase
+- `POST /api/reset-request` - Create reset request in Firebase
+- `GET /api/yields?region=Cameroon` - Get yields from Supabase
+- `POST /api/yields` - Insert yield into Supabase
+- `POST /api/backup-users` - Backup user to PocketBase
+
+## Testing
+- Use Postman or curl to test endpoints.
+- Update frontend to use these endpoints for all data operations.
+
+## Data Sync
+- For automated sync, use n8n (https://n8n.io/) or custom Node.js scripts.
+
+## Security
+- Never commit your .env file.
+- Set up security rules in Firebase and Supabase dashboards. 

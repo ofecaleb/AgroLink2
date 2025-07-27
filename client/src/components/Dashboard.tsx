@@ -3,10 +3,16 @@ import { useLanguage } from '../hooks/useLanguage';
 import { useQuery } from '@tanstack/react-query';
 import { ApiService } from '../lib/api';
 import { Card, CardContent } from '@/components/ui/card';
+import SuperAdminDashboard from './SuperAdminDashboard';
 
 export default function Dashboard() {
   const { user } = useAuth();
   const { t } = useLanguage();
+
+  // If user is super admin, show super admin dashboard
+  if (user?.role === 'super_admin') {
+    return <SuperAdminDashboard />;
+  }
 
   // Fetch user's tontines
   const { data: tontines = [] } = useQuery({

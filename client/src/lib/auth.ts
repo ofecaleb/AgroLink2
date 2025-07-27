@@ -3,14 +3,19 @@ import type { User } from '../types';
 
 export interface LoginCredentials {
   phone: string;
-  pin: string;
+  pin?: string;
+  password?: string;
 }
 
 export interface RegisterData {
   phone: string;
   pin: string;
+  password?: string;
   name: string;
   region: string;
+  email?: string;
+  country?: string;
+  language?: string;
 }
 
 export interface AuthResponse {

@@ -126,6 +126,12 @@ export class ApiService {
     return response.json();
   }
 
+  // Password change
+  static async changePassword(currentPin: string, newPin: string): Promise<{ message: string; user: User }> {
+    const response = await authenticatedRequest('PUT', '/api/user/password', { currentPin, newPin });
+    return response.json();
+  }
+
   // Support tickets
   static async createSupportTicket(data: { subject: string; message: string; category: string; priority: string }): Promise<SupportTicket> {
     const response = await authenticatedRequest('POST', '/api/support/tickets', data);
@@ -176,4 +182,124 @@ export class ApiService {
   static async inviteUserToTontine(tontineId: number, userId: number): Promise<void> {
     await authenticatedRequest('POST', `/api/tontines/${tontineId}/invite-user`, { userId });
   }
+
+  // Admin API Methods
+  static async getAdminStats(): Promise<any> {
+    const response = await authenticatedRequest('GET', '/api/admin/stats');
+    return response.json();
+  }
+
+  static async getPendingTontines(): Promise<any[]> {
+    const response = await authenticatedRequest('GET', '/api/admin/tontines/pending');
+    return response.json();
+  }
+
+  static async getPendingPrices(): Promise<any[]> {
+    const response = await authenticatedRequest('GET', '/api/admin/prices/pending');
+    return response.json();
+  }
+
+  static async getSuspendedUsers(): Promise<any[]> {
+    const response = await authenticatedRequest('GET', '/api/admin/users/suspended');
+    return response.json();
+  }
+
+  static async getFlaggedPosts(): Promise<any[]> {
+    const response = await authenticatedRequest('GET', '/api/admin/posts/flagged');
+    return response.json();
+  }
+
+  static async adminAction(type: string, id: number, action: string): Promise<void> {
+    await authenticatedRequest('POST', `/api/admin/${type}/${id}/${action}`);
+  }
+
+  // Admin Support Ticket API
+  static async getAllSupportTickets(): Promise<SupportTicket[]> {
+    const response = await authenticatedRequest('GET', '/api/admin/support/tickets');
+    return response.json();
+  }
+
+  static async updateSupportTicket(id: number, data: Partial<SupportTicket>): Promise<SupportTicket> {
+    const response = await authenticatedRequest('PATCH', `/api/admin/support/tickets/${id}`, data);
+    return response.json();
+  }
+
+  // Support Ticket Notifications
+  static async getSupportNotifications(): Promise<SupportTicket[]> {
+    const response = await authenticatedRequest('GET', '/api/support/notifications');
+    return response.json();
+  }
+
+  // Admin Premium Plan Management
+  static async getPremiumPlans(): Promise<any[]> {
+    const response = await authenticatedRequest('GET', '/api/admin/premium/plans');
+    return response.json();
+  }
+
+  static async createPremiumPlan(data: any): Promise<any> {
+    const response = await authenticatedRequest('POST', '/api/admin/premium/plans', data);
+    return response.json();
+  }
+
+  static async updatePremiumPlan(key: string, data: any): Promise<any> {
+    const response = await authenticatedRequest('PUT', `/api/admin/premium/plans/${key}`, data);
+    return response.json();
+  }
+
+  static async deactivatePremiumPlan(key: string): Promise<any> {
+    const response = await authenticatedRequest('DELETE', `/api/admin/premium/plans/${key}`);
+    return response.json();
+  }
+}
+
+export async function getUser(id: string) {
+  const res = await fetch(`/api/users/${id}`);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function createUser(data: any) {
+  const res = await fetch('/api/users', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function requestReset(data: any) {
+  const res = await fetch('/api/reset-request', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function getYields(region: string) {
+  const res = await fetch(`/api/yields?region=${encodeURIComponent(region)}`);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function insertYield(data: any) {
+  const res = await fetch('/api/yields', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function backupUser(data: any) {
+  const res = await fetch('/api/backup-users', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
 }

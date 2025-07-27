@@ -29,6 +29,8 @@ export default function CommunityView() {
   const { data: posts = [], isLoading: postsLoading } = useQuery({
     queryKey: ['/api/community/posts', user?.region],
     queryFn: () => ApiService.getCommunityPosts(user?.region),
+    refetchInterval: 5000,
+    refetchOnWindowFocus: true,
   });
 
   // Create post mutation
@@ -278,18 +280,20 @@ export default function CommunityView() {
                   {/* Post Actions */}
                   <div className="flex items-center justify-between pt-2">
                     <div className="flex items-center space-x-6">
-                      <button
-                        onClick={() => handleLikePost(post.id, isLiked)}
-                        className={`flex items-center space-x-2 text-sm transition-colors ${
-                          isLiked 
-                            ? 'text-red-600 hover:text-red-700' 
-                            : 'text-gray-600 dark:text-gray-400 hover:text-red-600'
-                        }`}
+                      <Button
+                        size="sm"
+                        variant={post.hasLiked ? "default" : "outline"}
+                        className={post.hasLiked ? "bg-farm-green text-white" : ""}
+                        onClick={() => handleLikePost(post.id, post.hasLiked)}
                         disabled={likePostMutation.isPending || unlikePostMutation.isPending}
                       >
-                        <i className={`fas fa-heart ${isLiked ? 'text-red-600' : ''}`}></i>
-                        <span>{likesCount} {likesCount === 1 ? 'Like' : 'Likes'}</span>
-                      </button>
+                        {post.hasLiked ? (
+                          <i className="fas fa-heart mr-1 text-red-500"></i>
+                        ) : (
+                          <i className="far fa-heart mr-1"></i>
+                        )}
+                        {post.likes || 0}
+                      </Button>
 
                       <button
                         onClick={() => toggleComments(post.id)}

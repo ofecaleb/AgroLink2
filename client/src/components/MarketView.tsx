@@ -238,27 +238,6 @@ export default function MarketView() {
         )}
       </div>
 
-      {/* Premium Features */}
-      <Card className="bg-gradient-to-r from-purple-500 to-pink-500 text-white">
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-bold mb-2">
-                <i className="fas fa-crown mr-2"></i>
-                {t('premiumFeaturesTitle')}
-              </h3>
-              <p className="text-purple-100">{t('premiumDescription')}</p>
-            </div>
-            <Button 
-              className="bg-white text-purple-600 font-semibold px-6 py-3 rounded-lg hover:bg-purple-50 transition-colors"
-              onClick={() => toast({ title: 'Premium features coming soon!' })}
-            >
-              {t('upgradeText')}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Submit Price Update */}
       <Card className="card-farm">
         <CardHeader>

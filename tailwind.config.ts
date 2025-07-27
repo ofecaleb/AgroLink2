@@ -1,8 +1,28 @@
 import type { Config } from "tailwindcss";
 
 export default {
+  safelist: [
+    "border-border",
+    "bg-background",
+    "text-foreground",
+    "bg-card",
+    "text-card-foreground",
+    "bg-popover",
+    "text-popover-foreground",
+    "bg-primary",
+    "text-primary-foreground",
+    "bg-secondary",
+    "text-secondary-foreground",
+    "bg-muted",
+    "text-muted-foreground",
+    "bg-accent",
+    "text-accent-foreground",
+    "bg-destructive",
+    "text-destructive-foreground",
+    // Add more if needed
+  ],
   darkMode: ["class"],
-  content: ["./client/index.html", "./client/src/**/*.{js,jsx,ts,tsx}"],
+  content: ["./index.html", "./src/**/*.{js,jsx,ts,tsx}"],
   theme: {
     extend: {
       borderRadius: {
@@ -11,49 +31,38 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
       colors: {
-        background: "var(--background)",
-        foreground: "var(--foreground)",
-        card: {
-          DEFAULT: "var(--card)",
-          foreground: "var(--card-foreground)",
-        },
-        popover: {
-          DEFAULT: "var(--popover)",
-          foreground: "var(--popover-foreground)",
-        },
-        primary: {
-          DEFAULT: "var(--primary)",
-          foreground: "var(--primary-foreground)",
-        },
-        secondary: {
-          DEFAULT: "var(--secondary)",
-          foreground: "var(--secondary-foreground)",
-        },
-        muted: {
-          DEFAULT: "var(--muted)",
-          foreground: "var(--muted-foreground)",
-        },
-        accent: {
-          DEFAULT: "var(--accent)",
-          foreground: "var(--accent-foreground)",
-        },
-        destructive: {
-          DEFAULT: "var(--destructive)",
-          foreground: "var(--destructive-foreground)",
-        },
         border: "var(--border)",
         input: "var(--input)",
         ring: "var(--ring)",
+        background: "var(--background)",
+        foreground: "var(--foreground)",
+        card: "var(--card)",
+        "card-foreground": "var(--card-foreground)",
+        popover: "var(--popover)",
+        "popover-foreground": "var(--popover-foreground)",
+        primary: "var(--primary)",
+        "primary-foreground": "var(--primary-foreground)",
+        secondary: "var(--secondary)",
+        "secondary-foreground": "var(--secondary-foreground)",
+        muted: "var(--muted)",
+        "muted-foreground": "var(--muted-foreground)",
+        accent: "var(--accent)",
+        "accent-foreground": "var(--accent-foreground)",
+        destructive: "var(--destructive)",
+        "destructive-foreground": "var(--destructive-foreground)",
         chart: {
           "1": "var(--chart-1)",
           "2": "var(--chart-2)",
           "3": "var(--chart-3)",
           "4": "var(--chart-4)",
           "5": "var(--chart-5)",
+          "6": "var(--chart-6)",
         },
         sidebar: {
-          DEFAULT: "var(--sidebar-background)",
+          DEFAULT: "var(--sidebar)",
           foreground: "var(--sidebar-foreground)",
+          "1": "var(--sidebar-1)",
+          "2": "var(--sidebar-2)",
           primary: "var(--sidebar-primary)",
           "primary-foreground": "var(--sidebar-primary-foreground)",
           accent: "var(--sidebar-accent)",
@@ -61,12 +70,20 @@ export default {
           border: "var(--sidebar-border)",
           ring: "var(--sidebar-ring)",
         },
-        "farm-green": "var(--farm-green)",
-        "farm-light": "var(--farm-light)",
-        "harvest-orange": "var(--harvest-orange)",
-        "earth-brown": "var(--earth-brown)",
+        farm: {
+          green: "var(--farm-green)",
+          light: "var(--farm-light)",
+          orange: "var(--harvest-orange)",
+          brown: "var(--earth-brown)",
+          "1": "var(--farm-1)",
+          "2": "var(--farm-2)",
+        },
       },
       keyframes: {
+        pulse: {
+          "0%, 100%": { opacity: 1 },
+          "50%": { opacity: 0.5 },
+        },
         "accordion-down": {
           from: {
             height: "0",
@@ -85,6 +102,7 @@ export default {
         },
       },
       animation: {
+        pulse: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
       },

@@ -150,7 +150,7 @@ export default function WeatherView() {
     }
   };
 
-  const isPremiumUser = user?.plan === 'premium';
+  const isPremiumUser = user?.plan === 'premium' || user?.role === 'super_admin';
 
   const getAlertColor = (severity: string) => {
     switch (severity) {
@@ -187,7 +187,7 @@ export default function WeatherView() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-2xl font-bold mb-2">
-                  {weather?.location || user?.region?.charAt(0).toUpperCase() + user?.region?.slice(1)}
+                  {weather?.location || (user?.region ? user.region.charAt(0).toUpperCase() + user.region.slice(1) : 'Your Region')}
                 </h2>
                 <div className="flex items-center space-x-4">
                   <span className="text-4xl font-bold">{weather?.temperature || 28}°C</span>
