@@ -1,0 +1,2 @@
+root: C:\myproject\TimePaceSage001234567\nvm
+path: C:\nvm4w\nodejs
