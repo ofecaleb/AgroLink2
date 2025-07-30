@@ -4,7 +4,7 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "dev": "cross-env NODE_ENV=development ts-node --esm server/index.ts",
+    "dev": "cross-env NODE_ENV=development node --loader ts-node/esm server/index.ts",
     "dev:tsx": "cross-env NODE_ENV=development tsx server/index.ts",
     "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "start": "cross-env NODE_ENV=production node dist/index.js",
@@ -70,6 +70,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "connect-pg-simple": "^10.0.0",
+    "cors": "^2.8.5",
     "cross-env": "^7.0.3",
     "date-fns": "^3.6.0",
     "dotenv": "^16.6.1",
@@ -107,7 +108,7 @@
     "ts-node": "^10.9.2",
     "tsx": "^4.19.1",
     "tw-animate-css": "^1.2.5",
-    "typescript": "5.6.3",
+    "typescript": "^5.6.3",
     "vaul": "^1.1.2",
     "vite": "^5.4.19",
     "wouter": "^3.3.5",
@@ -119,6 +120,7 @@
     "bufferutil": "^4.0.8"
   },
   "devDependencies": {
-    "@types/node": "^24.0.10"
+    "@types/node": "^24.1.0",
+    "prepend-file": "^2.0.1"
   }
 }

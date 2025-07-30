@@ -12,10 +12,16 @@ import { NotificationService } from "./notification-service.js";
 import { getUserById as getFirebaseUser, createUser as createFirebaseUser, createResetRequest } from './services/firebaseService.js';
 import { getYields, insertYield } from './services/supabaseService.js';
 import { backupUser as backupPocketUser } from './services/pocketbaseService.js';
+import cors from 'cors';
+import express, {Request} from 'express';
 
 const app = express();
 
 // Performance optimization: Increase body parser limits to handle larger payloads (e.g., profile pictures)
+app.use(cors<Request>({
+  origin: 'https://agrolink-ofe.onrender.com/',
+  credentials: true,
+}));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
