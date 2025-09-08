@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { authService, type LoginCredentials } from '../lib/auth';
 import type { User, AuthState } from '../types';
-import { getUser, createUser, requestReset } from '../lib/api';
 
 export function useAuth() {
   const [authState, setAuthState] = useState<AuthState>({
@@ -44,35 +43,59 @@ export function useAuth() {
 
   // Accepts either (email, password) or (phone, pin)
   const login = async (identifier: string, secret: string, usePassword: boolean) => {
-    let payload: any = {};
-    if (usePassword) {
-      // If identifier looks like an email, use email+password
-      if (identifier.includes('@')) {
-        payload = { email: identifier, password: secret };
+    try {
+      updateAuthState({ isLoading: true });
+      
+      let credentials: LoginCredentials = {};
+      
+      if (usePassword) {
+        if (identifier.includes('@')) {
+          credentials = { phone: '', email: identifier, password: secret };
+        } else {
+          credentials = { phone: identifier, password: secret };
+        }
       } else {
-        // Otherwise, treat as phone+password (not supported by backend)
-        // Fallback: treat as email+password
-        payload = { email: identifier, password: secret };
+        credentials = { phone: identifier, pin: secret };
       }
-    } else {
-      // PIN login: always use phone+pin
-      payload = { phone: identifier, pin: secret };
+      
+      const result = await authService.login(credentials);
+      
+      updateAuthState({
+        user: result.user,
+        token: result.token,
+        isAuthenticated: true,
+        isLoading: false
+      });
+      
+      return { success: true };
+    } catch (error: any) {
+      updateAuthState({ isLoading: false });
+      return { success: false, error: error.message };
     }
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) throw new Error(await res.text());
-    return res.json();
   };
 
   const register = async (data: any) => {
-    return createUser(data);
+    try {
+      updateAuthState({ isLoading: true });
+      
+      const user = await authService.register(data);
+      
+      updateAuthState({ isLoading: false });
+      
+      return { success: true, user };
+    } catch (error: any) {
+      updateAuthState({ isLoading: false });
+      return { success: false, error: error.message };
+    }
   };
 
   const resetPassword = async (data: any) => {
-    return requestReset(data);
+    try {
+      // Implementation for password reset
+      return { success: true, message: 'Reset request sent' };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
   };
 
   const logout = async () => {

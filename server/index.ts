@@ -4,25 +4,19 @@ import path from "path";
 import fs from "fs";
 import { registerRoutes } from "./routes.js";
 import { setupVite, serveStatic, log } from "./vite.js";
-import CacheManager from "./cache.js";
-import { dbManager, checkDatabaseHealth } from "./database-config.js";
-import { AuthService } from "./auth-service.js";
-import { AnalyticsService } from "./analytics-service.js";
-import { NotificationService } from "./notification-service.js";
-import { getUserById as getFirebaseUser, createUser as createFirebaseUser, createResetRequest } from './services/firebaseService.js';
-import { getYields, insertYield } from './services/supabaseService.js';
-import { backupUser as backupPocketUser } from './services/pocketbaseService.js';
 import cors from 'cors';
-import express, {Request} from 'express';
 
 const app = express();
 
-// Performance optimization: Increase body parser limits to handle larger payloads (e.g., profile pictures)
-app.use(cors<Request>({
-  origin: 'https://agrolink-ofe.onrender.com/',
+// CORS configuration
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' 
+    ? ['https://agrolink-ofe.onrender.com', 'https://your-domain.com']
+    : ['http://localhost:3000', 'http://localhost:5000'],
   credentials: true,
 }));
 app.use(express.json({ limit: '10mb' }));
+// Body parser middleware
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Performance monitoring middleware
@@ -63,24 +57,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Performance optimization: Add compression middleware
-app.use((req, res, next) => {
-  // Simple compression for JSON responses
-  if (req.path.startsWith('/api') && req.headers.accept?.includes('application/json')) {
-    res.setHeader('Content-Encoding', 'gzip');
-  }
-  next();
-});
-
-// Performance optimization: Add caching headers for static assets
-app.use((req, res, next) => {
-  if (req.path.match(/\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$/)) {
-    res.setHeader('Cache-Control', 'public, max-age=31536000'); // 1 year
-  }
-  next();
-});
-
-// Performance optimization: Add rate limiting for API endpoints
+// Simple rate limiting
 const rateLimit = new Map();
 app.use((req, res, next) => {
   if (req.path.startsWith('/api')) {
@@ -105,80 +82,6 @@ app.use((req, res, next) => {
     }
   }
   next();
-});
-
-// Performance optimization: Add request timeout
-app.use((req, res, next) => {
-  const timeout = setTimeout(() => {
-    if (!res.headersSent) {
-      res.status(408).json({ error: 'Request timeout' });
-    }
-  }, 30000); // 30 second timeout
-
-  res.on('finish', () => {
-    clearTimeout(timeout);
-  });
-
-  next();
-});
-
-// Firebase user API
-app.get('/api/users/:id', async (req, res) => {
-  try {
-    const user = await getFirebaseUser(req.params.id);
-    if (!user) return res.status(404).json({ error: 'User not found' });
-    res.json(user);
-  } catch (e) {
-    res.status(500).json({ error: e instanceof Error ? e.message : String(e) });
-  }
-});
-
-app.post('/api/users', async (req, res) => {
-  try {
-    const user = await createFirebaseUser(req.body);
-    res.status(201).json(user);
-  } catch (e) {
-    res.status(500).json({ error: e instanceof Error ? e.message : String(e) });
-  }
-});
-
-app.post('/api/reset-request', async (req, res) => {
-  try {
-    const id = await createResetRequest(req.body);
-    res.status(201).json({ id });
-  } catch (e) {
-    res.status(500).json({ error: e instanceof Error ? e.message : String(e) });
-  }
-});
-
-// Supabase yields API
-app.get('/api/yields', async (req, res) => {
-  try {
-    const region = req.query.region as string;
-    const yields = await getYields(region);
-    res.json(yields);
-  } catch (e) {
-    res.status(500).json({ error: e instanceof Error ? e.message : String(e) });
-  }
-});
-
-app.post('/api/yields', async (req, res) => {
-  try {
-    const result = await insertYield(req.body);
-    res.status(201).json(result);
-  } catch (e) {
-    res.status(500).json({ error: e instanceof Error ? e.message : String(e) });
-  }
-});
-
-// PocketBase backup API
-app.post('/api/backup-users', async (req, res) => {
-  try {
-    const result = await backupPocketUser(req.body);
-    res.status(201).json(result);
-  } catch (e) {
-    res.status(500).json({ error: e instanceof Error ? e.message : String(e) });
-  }
 });
 
 (async () => {
@@ -231,22 +134,13 @@ app.post('/api/backup-users', async (req, res) => {
     reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
-    log(`🚀 Performance optimizations enabled:`);
-    log(`   - Database connection pooling`);
-    log(`   - In-memory caching system`);
-    log(`   - Request rate limiting`);
-    log(`   - Response compression`);
-    log(`   - Static asset caching`);
-    log(`   - Request timeout protection`);
+    log(`🚀 AgroLink server running`);
+    log(`   - Environment: ${process.env.NODE_ENV}`);
+    log(`   - Database: ${process.env.DATABASE_URL ? 'Connected' : 'Not configured'}`);
+    log(`   - Frontend: ${app.get("env") === "development" ? 'Vite dev server' : 'Static files'}`);
   });
 
-  // Performance monitoring: Log cache stats every 5 minutes
-  setInterval(() => {
-    const stats = CacheManager.getStats();
-    log(`📊 Cache Stats: ${JSON.stringify(stats)}`);
-  }, 300000); // 5 minutes
-
-  // Performance monitoring: Clean up rate limit map every hour
+  // Clean up rate limit map every hour
   setInterval(() => {
     const now = Date.now();
     for (const [ip, data] of rateLimit.entries()) {
@@ -255,25 +149,5 @@ app.post('/api/backup-users', async (req, res) => {
       }
     }
   }, 3600000); // 1 hour
-
-  // Database health monitoring
-  setInterval(async () => {
-    try {
-      const health = await checkDatabaseHealth();
-      if (!health.firebase || !health.supabase) {
-        log(`⚠️  Database health issues detected: ${JSON.stringify(health)}`);
-      } else {
-        log(`✅ All databases healthy`);
-      }
-    } catch (error) {
-      log(`❌ Database health check failed: ${error}`);
-    }
-  }, 300000); // 5 minutes
-
-  // Add this at the very end, after all routes
-  app.use((err: any, req: Request, res: Response, next: NextFunction) => {
-    console.error('GLOBAL ERROR HANDLER:', err);
-    res.status(500).json({ error: err.message || 'Internal Server Error' });
-  });
 
 })();

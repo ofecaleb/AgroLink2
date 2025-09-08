@@ -16,13 +16,13 @@ export default function Dashboard() {
 
   // Fetch user's tontines
   const { data: tontines = [] } = useQuery({
-    queryKey: ['/api/tontines'],
+    queryKey: ['tontines'],
     queryFn: () => ApiService.getTontines(),
   });
 
   // Fetch weather data
   const { data: weather } = useQuery({
-    queryKey: ['/api/weather/current'],
+    queryKey: ['weather-current', user?.region],
     queryFn: () => ApiService.getCurrentWeather(user?.region),
   });
 

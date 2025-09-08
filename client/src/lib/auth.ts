@@ -1,4 +1,3 @@
-import { apiRequest } from './queryClient';
 import type { User } from '../types';
 
 export interface LoginCredentials {
@@ -50,7 +49,17 @@ export class AuthService {
   }
 
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
-    const response = await apiRequest('POST', '/api/auth/login', credentials);
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(credentials),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Login failed');
+    }
+    
     const data = await response.json() as AuthResponse;
     
     this.setAuth(data.token, data.user);
@@ -58,15 +67,30 @@ export class AuthService {
   }
 
   async register(userData: RegisterData): Promise<User> {
-    const response = await apiRequest('POST', '/api/auth/register', userData);
-    const user = await response.json() as User;
-    return user;
+    const response = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(userData),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Registration failed');
+    }
+    
+    const data = await response.json();
+    return data.user;
   }
 
   async logout(): Promise<void> {
     if (this.token) {
       try {
-        await apiRequest('POST', '/api/auth/logout');
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${this.token}`,
+          },
+        });
       } catch (error) {
         console.error('Logout request failed:', error);
       }
@@ -79,7 +103,16 @@ export class AuthService {
     if (!this.token) return null;
 
     try {
-      const response = await apiRequest('GET', '/api/user/profile');
+      const response = await fetch('/api/user/profile', {
+        headers: {
+          'Authorization': `Bearer ${this.token}`,
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to refresh profile');
+      }
+      
       const user = await response.json() as User;
       this.setUser(user);
       return user;

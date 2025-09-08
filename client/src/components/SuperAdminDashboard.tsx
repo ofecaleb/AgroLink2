@@ -109,37 +109,37 @@ export default function SuperAdminDashboard() {
 
   // Fetch admin data
   const { data: adminStats } = useQuery({
-    queryKey: ['/api/admin/stats'],
+    queryKey: ['admin-stats'],
     queryFn: () => ApiService.getAdminStats(),
     enabled: user?.role === 'super_admin',
   });
 
   const { data: pendingTontines = [] } = useQuery({
-    queryKey: ['/api/admin/tontines/pending'],
+    queryKey: ['admin-pending-tontines'],
     queryFn: () => ApiService.getPendingTontines(),
     enabled: user?.role === 'super_admin',
   });
 
   const { data: pendingPrices = [] } = useQuery({
-    queryKey: ['/api/admin/prices/pending'],
+    queryKey: ['admin-pending-prices'],
     queryFn: () => ApiService.getPendingPrices(),
     enabled: user?.role === 'super_admin',
   });
 
   const { data: suspendedUsers = [] } = useQuery({
-    queryKey: ['/api/admin/users/suspended'],
+    queryKey: ['admin-suspended-users'],
     queryFn: () => ApiService.getSuspendedUsers(),
     enabled: user?.role === 'super_admin',
   });
 
   const { data: flaggedPosts = [] } = useQuery({
-    queryKey: ['/api/admin/posts/flagged'],
+    queryKey: ['admin-flagged-posts'],
     queryFn: () => ApiService.getFlaggedPosts(),
     enabled: user?.role === 'super_admin',
   });
 
   const { data: tickets = [], isLoading } = useQuery({
-    queryKey: ['/api/admin/support/tickets'],
+    queryKey: ['admin-support-tickets'],
     queryFn: () => ApiService.getAllSupportTickets(),
     refetchInterval: 5000, // Refresh every 5 seconds
     refetchOnWindowFocus: true,
@@ -920,7 +920,7 @@ function AdminSupportTickets() {
   const updateTicketMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Partial<SupportTicket> }) => ApiService.updateSupportTicket(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/support/tickets'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-support-tickets'] });
       toast({ title: 'Ticket updated successfully!' });
     },
     onError: (error: any) => {
@@ -979,7 +979,7 @@ function AdminPremiumManagement() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: plans = [], isLoading } = useQuery({
-    queryKey: ['/api/admin/premium/plans'],
+    queryKey: ['admin-premium-plans'],
     queryFn: () => ApiService.getPremiumPlans(),
     refetchInterval: 5000,
     refetchOnWindowFocus: true,
@@ -987,7 +987,7 @@ function AdminPremiumManagement() {
   const createPlanMutation = useMutation({
     mutationFn: (data: any) => ApiService.createPremiumPlan(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/premium/plans'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-premium-plans'] });
       toast({ title: 'Premium plan created!' });
     },
     onError: (error: any) => {
@@ -997,7 +997,7 @@ function AdminPremiumManagement() {
   const updatePlanMutation = useMutation({
     mutationFn: ({ key, data }: { key: string; data: any }) => ApiService.updatePremiumPlan(key, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/premium/plans'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-premium-plans'] });
       toast({ title: 'Premium plan updated!' });
     },
     onError: (error: any) => {
@@ -1007,7 +1007,7 @@ function AdminPremiumManagement() {
   const deactivatePlanMutation = useMutation({
     mutationFn: (key: string) => ApiService.deactivatePremiumPlan(key),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/premium/plans'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-premium-plans'] });
       toast({ title: 'Premium plan deactivated.' });
     },
     onError: (error: any) => {

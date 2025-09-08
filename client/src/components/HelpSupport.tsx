@@ -90,7 +90,7 @@ export default function HelpSupport() {
 
   // Fetch user's support tickets
   const { data: tickets = [], isLoading: ticketsLoading } = useQuery({
-    queryKey: ['/api/support/tickets'],
+    queryKey: ['support-tickets'],
     queryFn: () => ApiService.getSupportTickets(),
     enabled: !!user,
   });
@@ -99,7 +99,7 @@ export default function HelpSupport() {
   const createTicketMutation = useMutation({
     mutationFn: (data: any) => ApiService.createSupportTicket(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/support/tickets'] });
+      queryClient.invalidateQueries({ queryKey: ['support-tickets'] });
       setTicketForm({ subject: '', message: '', priority: 'medium', category: 'general' });
       toast({
         title: 'Success',

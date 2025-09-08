@@ -19,13 +19,13 @@ export default function WeatherView() {
 
   // Fetch current weather
   const { data: weather, isLoading: weatherLoading } = useQuery({
-    queryKey: ['/api/weather/current', user?.region],
+    queryKey: ['weather-current', user?.region],
     queryFn: () => ApiService.getCurrentWeather(user?.region),
   });
 
   // Fetch weather alerts
   const { data: alerts = [], isLoading: alertsLoading } = useQuery({
-    queryKey: ['/api/weather/alerts', user?.region],
+    queryKey: ['weather-alerts', user?.region],
     queryFn: () => ApiService.getWeatherAlerts(user?.region),
   });
 

@@ -27,7 +27,7 @@ export default function CommunityView() {
 
   // Fetch community posts
   const { data: posts = [], isLoading: postsLoading } = useQuery({
-    queryKey: ['/api/community/posts', user?.region],
+    queryKey: ['community-posts', user?.region],
     queryFn: () => ApiService.getCommunityPosts(user?.region),
     refetchInterval: 5000,
     refetchOnWindowFocus: true,
@@ -37,7 +37,7 @@ export default function CommunityView() {
   const createPostMutation = useMutation({
     mutationFn: (content: string) => ApiService.createCommunityPost({ content }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/community/posts'] });
+      queryClient.invalidateQueries({ queryKey: ['community-posts'] });
       setPostContent('');
       toast({
         title: 'Success',
@@ -57,7 +57,7 @@ export default function CommunityView() {
   const likePostMutation = useMutation({
     mutationFn: (postId: number) => ApiService.likePost(postId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/community/posts'] });
+      queryClient.invalidateQueries({ queryKey: ['community-posts'] });
     },
     onError: (error: any) => {
       toast({
@@ -72,7 +72,7 @@ export default function CommunityView() {
   const unlikePostMutation = useMutation({
     mutationFn: (postId: number) => ApiService.unlikePost(postId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/community/posts'] });
+      queryClient.invalidateQueries({ queryKey: ['community-posts'] });
     },
     onError: (error: any) => {
       toast({
@@ -88,7 +88,7 @@ export default function CommunityView() {
     mutationFn: ({ postId, content }: { postId: number; content: string }) => 
       ApiService.createCommunityComment(postId, content),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/community/posts'] });
+      queryClient.invalidateQueries({ queryKey: ['community-posts'] });
       setCommentInputs({});
       toast({
         title: 'Success',

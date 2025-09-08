@@ -28,7 +28,7 @@ export default function MarketView() {
 
   // Fetch market prices
   const { data: prices = [], isLoading: pricesLoading } = useQuery({
-    queryKey: ['/api/market-prices', selectedRegion],
+    queryKey: ['market-prices', selectedRegion],
     queryFn: () => ApiService.getMarketPrices(selectedRegion),
   });
 
@@ -37,7 +37,7 @@ export default function MarketView() {
     mutationFn: (data: { crop: string; price: number; unit?: string }) => 
       ApiService.createMarketPrice(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/market-prices'] });
+      queryClient.invalidateQueries({ queryKey: ['market-prices'] });
       setPriceFormData({ crop: '', price: '', customCrop: '' });
       setShowUpdateForm(false);
       toast({
@@ -58,7 +58,7 @@ export default function MarketView() {
   const verifyPriceMutation = useMutation({
     mutationFn: (priceId: number) => ApiService.verifyMarketPrice(priceId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/market-prices'] });
+      queryClient.invalidateQueries({ queryKey: ['market-prices'] });
       toast({
         title: 'Price verified successfully!',
         description: 'The market price has been approved and is now live.',

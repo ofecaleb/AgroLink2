@@ -2,8 +2,13 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
+    try {
+      const errorData = await res.json();
+      throw new Error(errorData.error || errorData.message || res.statusText);
+    } catch {
+      const text = await res.text();
+      throw new Error(text || res.statusText);
+    }
   }
 }
 
@@ -49,7 +54,10 @@ export const getQueryFn: <T>(options: {
       headers["Authorization"] = `Bearer ${token}`;
     }
 
-    const res = await fetch(queryKey[0] as string, {
+    const url = queryKey[0] as string;
+    const fullUrl = url.startsWith('http') ? url : `${window.location.origin}${url}`;
+    
+    const res = await fetch(fullUrl, {
       headers,
       credentials: "include",
     });
