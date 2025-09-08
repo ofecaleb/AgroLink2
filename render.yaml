@@ -1,14 +1,18 @@
 services:
   - type: web
-    name: timepacesage
+    name: AgroLink2
     env: node
     plan: free
-    buildCommand: npm install && npm run build
+    buildCommand: |
+      npm install
+      npm run build
     startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
+      - key: PORT
+        value: 10000
       - key: DATABASE_URL
         sync: false
-    healthCheckPath: /
-    autoDeploy: true 
+    healthCheckPath: /api/health
+    autoDeploy: true

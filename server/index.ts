@@ -120,9 +120,15 @@ app.use((req, res, next) => {
     }
   });
 
-  const port = process.env.PORT || 5000;
-  server.listen({ port, host: '0.0.0.0', reusePort: true }, () => {
-    log(`🚀 AgroLink server running on port ${port}`);
+  // Health check endpoint
+  app.get('/api/health', (req, res) => {
+    res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+  });
+
+  // Start the server
+  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 5000;
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server is running on port ${PORT}`);
   });
 
   // Cleanup rate limit
