@@ -1,21 +1,36 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
+    "baseUrl": ".",
+    "outDir": "./dist/client",
     "jsx": "react-jsx",
     "jsxImportSource": "react",
     "module": "ESNext",
     "target": "ESNext",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "noEmit": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "baseUrl": ".",
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
     "paths": {
       "@/*": ["./client/src/*"],
       "@shared/*": ["./shared/*"]
     },
-    "types": ["vite/client"]
+    "types": ["vite/client", "node"],
+    "typeRoots": [
+      "./node_modules/@types",
+      "./types"
+    ]
   },
-  "include": ["client/src/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts"]
+  "include": [
+    "client/src/**/*",
+    "vite.config.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts",
+    "**/*.spec.ts"
+  ]
 }

@@ -1,12 +1,12 @@
 services:
   - type: web
-    name: AgroLink2
+    name: agrolink2
     env: node
     plan: free
     buildCommand: |
       npm install
       npm run build
-    startCommand: npm start
+    startCommand: node dist/server/index.js
     envVars:
       - key: NODE_ENV
         value: production
