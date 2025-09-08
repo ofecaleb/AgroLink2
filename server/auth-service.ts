@@ -368,7 +368,7 @@ export class AuthService {
         orderBy: desc(userSessions.lastUsed),
       });
 
-      return sessions.map(session => ({
+      return sessions.map((session: { id: number | string; userId: number | string; sessionToken: string; expiresAt: Date; lastUsed: Date; createdAt: Date; }) => ({
         id: session.id.toString(),
         userId: session.userId.toString(),
         sessionToken: session.sessionToken,

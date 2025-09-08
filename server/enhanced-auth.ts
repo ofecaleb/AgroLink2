@@ -1,11 +1,11 @@
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import * as bcrypt from 'bcryptjs';
+import * as jwt from 'jsonwebtoken';
 import { dbManager } from './database-config.js';
 import { multiDbStorage } from './multi-db-storage.js';
 import { users, type User, type InsertUser } from '../shared/schema.js';
-import { eq } from 'drizzle-orm';
-import nodemailer from 'nodemailer';
-import twilio from 'twilio';
+import { eq, sql } from 'drizzle-orm';
+import * as nodemailer from 'nodemailer';
+import * as Twilio from 'twilio';
 
 // Enhanced Authentication Configuration
 interface AuthConfig {
@@ -94,8 +94,8 @@ export class EnhancedAuth {
       }
 
       // Verify password
-      const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
-      if (!isPasswordValid) {
+      const isMatch = await bcrypt.compare(password, user.passwordHash || '');
+      if (!isMatch) {
         this.recordFailedAttempt(phone);
         throw new Error('Invalid credentials');
       }
@@ -107,8 +107,8 @@ export class EnhancedAuth {
 
       // Verify PIN if provided
       if (pin) {
-        const isPinValid = await bcrypt.compare(pin, user.pinHash);
-        if (!isPinValid) {
+        const isMatch = await bcrypt.compare(pin, user.pinHash || '');
+        if (!isMatch) {
           this.recordFailedAttempt(phone);
           throw new Error('Invalid PIN');
         }
@@ -153,7 +153,7 @@ export class EnhancedAuth {
       });
 
       // Send reset code via email or WhatsApp
-      if (method === 'email') {
+      if (method === 'email' && user.email) {
         await this.sendResetEmail(user.email, resetToken, type);
       } else {
         await this.sendResetWhatsApp(phone, resetToken, type);
@@ -244,15 +244,13 @@ export class EnhancedAuth {
 
   // Generate JWT token
   private generateToken(user: User): string {
-    return jwt.sign(
-      {
-        userId: user.id,
-        phone: user.phone,
-        role: user.role
-      },
-      this.config.jwtSecret,
-      { expiresIn: this.config.jwtExpiresIn }
-    );
+    const payload = { 
+      userId: user.id, 
+      role: user.role,
+      exp: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60) // 7 days
+    };
+    const token = jwt.sign(payload, this.config.jwtSecret, { algorithm: 'HS256' });
+    return token;
   }
 
   // Generate reset token
@@ -323,7 +321,7 @@ export class EnhancedAuth {
   // Send reset email
   private async sendResetEmail(email: string, token: string, type: 'password' | 'pin'): Promise<void> {
     try {
-      const transporter = nodemailer.createTransporter(this.config.emailConfig);
+      const transporter = nodemailer.createTransport(this.config.emailConfig);
 
       const mailOptions = {
         from: this.config.emailConfig.auth.user,
@@ -348,7 +346,7 @@ export class EnhancedAuth {
   // Send reset WhatsApp message
   private async sendResetWhatsApp(phone: string, token: string, type: 'password' | 'pin'): Promise<void> {
     try {
-      const client = twilio(this.config.twilioConfig.accountSid, this.config.twilioConfig.authToken);
+      const client = Twilio.default(this.config.twilioConfig.accountSid, this.config.twilioConfig.authToken);
 
       const message = `AgroLink ${type === 'password' ? 'Password' : 'PIN'} Reset\n\nYour reset code is: ${token}\n\nThis code will expire in ${this.config.resetTokenExpiry} minutes.\n\nIf you didn't request this reset, please ignore this message.`;
 

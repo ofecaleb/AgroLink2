@@ -115,18 +115,10 @@ export class AnalyticsService {
         (newUsersThisMonth / totalUsers[0].count) * 100 : 0;
 
       // Get regional distribution
-      const { data: regionalData } = await supabaseAdmin
-        .from('user_analytics')
-        .select('region, count')
-        .eq('action', 'user_registered')
-        .group('region');
+      const { data: regionalData } = await supabaseAdmin.rpc('get_regional_distribution');
 
       // Get role distribution
-      const { data: roleData } = await supabaseAdmin
-        .from('user_analytics')
-        .select('role, count')
-        .eq('action', 'user_registered')
-        .group('role');
+      const { data: roleData } = await supabaseAdmin.rpc('get_role_distribution');
 
       return {
         totalUsers: totalUsers[0]?.count || 0,
@@ -245,15 +237,8 @@ export class AnalyticsService {
       const priceTrends = this.calculatePriceTrends(trendData || []);
 
       // Get regional prices
-      const { data: regionalData } = await supabaseAdmin
-        .from('market_analytics')
-        .select('region, price')
-        .group('region');
-
-      const regionalPrices = regionalData?.map((rd: any) => ({
-        region: rd.region,
-        averagePrice: rd.avg_price || 0,
-      })) || [];
+      const { data: regionalPricesData } = await supabaseAdmin.rpc('get_regional_prices');
+      const regionalPrices = regionalPricesData || [];
 
       return {
         totalPrices: totalPrices[0]?.count || 0,
@@ -302,17 +287,16 @@ export class AnalyticsService {
         .order('posts', { ascending: false })
         .limit(10);
 
-      const topContributors = contributorData || [];
+      const topContributors = (contributorData || []).map((c: any) => ({
+        userId: c.user_id,
+        name: c.user_name,
+        posts: c.posts,
+        likes: c.likes
+      }));
 
       // Get popular topics
-      const { data: topicData } = await supabaseAdmin
-        .from('community_analytics')
-        .select('topic, count')
-        .group('topic')
-        .order('count', { ascending: false })
-        .limit(10);
-
-      const popularTopics = topicData || [];
+      const { data: popularTopicsData } = await supabaseAdmin.rpc('get_popular_topics');
+      const popularTopics = popularTopicsData || [];
 
       return {
         totalPosts: totalPosts[0]?.count || 0,
@@ -359,12 +343,7 @@ export class AnalyticsService {
         supportAnalytics.reduce((sum: number, sa: any) => sum + (sa.resolution_time || 0), 0) / supportAnalytics.length : 0;
 
       // Get ticket categories
-      const { data: categoryData } = await supabaseAdmin
-        .from('support_analytics')
-        .select('category, count')
-        .group('category');
-
-      const ticketCategories = categoryData || [];
+      const { data: ticketCategories } = await supabaseAdmin.rpc('get_ticket_categories');
 
       // Calculate satisfaction rate
       const satisfiedTickets = supportAnalytics?.filter((sa: any) => sa.satisfaction_score >= 4).length || 0;

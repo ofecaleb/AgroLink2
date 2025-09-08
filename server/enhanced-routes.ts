@@ -178,12 +178,13 @@ router.post('/market-prices', async (req, res) => {
 
     const priceData = {
       crop,
-      price: parseFloat(price),
+      price: parseFloat(price).toString(), // Convert to string for decimal type
       region,
       unit,
-      userId: userId || 1,
+      submittedBy: userId || 1, // Use submittedBy instead of userId
       isVerified: false,
-      createdAt: new Date()
+      createdAt: new Date(),
+      updatedAt: new Date()
     };
 
     const newPrice = await multiDbStorage.createMarketPrice(priceData);

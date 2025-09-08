@@ -170,9 +170,10 @@ export default function TontineView() {
     }
   });
 
-  // Create invite mutation - FIXED
+  // Create invite mutation
   const createInviteMutation = useMutation({
-    mutationFn: ApiService.createTontineInvite,
+    mutationFn: ({ tontineId, data }: { tontineId: number, data: { maxUses?: number; expiresAt?: string } }) => 
+      ApiService.createTontineInvite(tontineId, data),
     onSuccess: (invite) => {
       toast({
         title: 'Invite Created!',

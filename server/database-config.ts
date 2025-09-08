@@ -272,8 +272,55 @@ export class DatabaseManager {
     return this.connections.pocketbase;
   }
 
+  // Add health check method
+  async healthCheck() {
+    const results: Record<string, boolean> = {};
+    
+    // Check primary database
+    try {
+      await this.connections.primary.execute(sql`SELECT 1`);
+      results.primary = true;
+    } catch (error) {
+      console.error('Primary database health check failed:', error);
+      results.primary = false;
+    }
+
+    // Check Firebase
+    try {
+      await this.connections.firebase.listCollections();
+      results.firebase = true;
+    } catch (error) {
+      console.error('Firebase health check failed:', error);
+      results.firebase = false;
+    }
+
+    // Check Supabase
+    try {
+      const { data, error } = await this.connections.supabase.from('users').select('*').limit(1);
+      results.supabase = !error && data !== null;
+    } catch (error) {
+      console.error('Supabase health check failed:', error);
+      results.supabase = false;
+    }
+
+    // Check PocketBase
+    try {
+      await this.connections.pocketbase.collection('users').getList(1, 1);
+      results.pocketbase = true;
+    } catch (error) {
+      console.error('PocketBase health check failed:', error);
+      results.pocketbase = false;
+    }
+
+    return {
+      connections: results,
+      timestamp: new Date().toISOString(),
+      healthy: Object.values(results).every(status => status === true)
+    };
+  }
+
   // Add routeData method (updated)
-  async routeData(operation: 'read' | 'write' | 'delete', dataType: string, data?: any) {
+  routeData(operation: 'read' | 'write' | 'delete', dataType: string, data?: any) {
     // Route core data to primary (Neon/Postgres), real-time to Firebase, analytics to Supabase
     if ([
       'users', 'tontines', 'market_prices', 'community_posts',

@@ -46,7 +46,7 @@ export function useAuth() {
     try {
       updateAuthState({ isLoading: true });
       
-      let credentials: LoginCredentials = {};
+      let credentials: LoginCredentials = { phone: '' };
       
       if (usePassword) {
         if (identifier.includes('@')) {

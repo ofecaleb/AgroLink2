@@ -10,6 +10,7 @@ import type {
   SupportTicket,
   CommunityComment
 } from '../types';
+import { authService } from './auth';
 
 // Get API base URL
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';

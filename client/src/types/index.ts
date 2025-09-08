@@ -26,6 +26,10 @@ export interface Tontine {
   nextPayoutDate: string | null;
   status: string;
   region: string;
+  description?: string;
+  payoutSchedule?: 'monthly' | 'quarterly' | 'bi-annual';
+  maxMembers?: number;
+  rules?: string;
   createdAt: string;
   members?: TontineMember[];
   memberCount?: number;

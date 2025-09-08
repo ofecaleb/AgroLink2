@@ -331,12 +331,12 @@ export class NotificationService {
 
       return successCount;
     } catch (error) {
-      console.error('Send bulk notifications error:', error);
+      console.error('Error in sendBulkNotifications:', error);
       return 0;
     }
   }
 
-  // Send system-wide notification
+  // Send system notification to all active users
   static async sendSystemNotification(
     type: Notification['type'],
     title: string,
@@ -349,7 +349,7 @@ export class NotificationService {
         where: eq(users.isActive, true),
       });
 
-      const userIds = activeUsers.map(user => user.id.toString());
+      const userIds = activeUsers.map((user: { id: number }) => user.id.toString());
       return await this.sendBulkNotifications(userIds, type, title, message, data);
     } catch (error) {
       console.error('Send system notification error:', error);
@@ -414,19 +414,24 @@ export class NotificationService {
         throw new Error('Template not found');
       }
 
-      const template = templateDoc.data();
+      const template = templateDoc.data() as NotificationTemplate | undefined;
+      if (!template) {
+        throw new Error('Invalid template data');
+      }
+
       let title = template.title;
       let message = template.message;
 
       // Replace variables
       Object.entries(variables).forEach(([key, value]) => {
-        title = title.replace(`{{${key}}}`, value);
-        message = message.replace(`{{${key}}}`, value);
+        const regex = new RegExp(`\\{\\{${key}\\}}`, 'g');
+        title = title.replace(regex, value);
+        message = message.replace(regex, value);
       });
 
       return await this.sendNotification(
         userId,
-        template.type,
+        template.type as Notification['type'],
         title,
         message,
         { templateId, variables }
@@ -458,19 +463,37 @@ export class NotificationService {
     }
   }
 
-  // Get notification statistics
-  static async getNotificationStats(): Promise<any> {
+  // Get notification analytics
+  static async getNotificationAnalytics() {
     try {
+      // Use a raw SQL query for grouping since Supabase's query builder doesn't support GROUP BY directly
+      const { data, error } = await supabaseAdmin.rpc('get_notification_analytics');
+      
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Get notification analytics error:', error);
+      return [];
+    }
+  }
+
+  // Get notification statistics
+  static async getNotificationStats(): Promise<{
+    totalNotifications: number;
+    byType: Array<{ notification_type: string; count: number }>;
+    timestamp: string;
+  }> {
+    try {
+      // Use the RPC function for analytics instead of direct query with group
       const { data: stats, error } = await supabaseAdmin
-        .from('notification_analytics')
-        .select('notification_type, count')
-        .gte('timestamp', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
-        .group('notification_type');
+        .rpc('get_notification_stats', {
+          days: 30
+        });
 
       if (error) throw error;
 
       return {
-        totalNotifications: stats?.reduce((sum: number, stat: any) => sum + stat.count, 0) || 0,
+        totalNotifications: stats?.reduce((sum: number, stat: any) => sum + (stat.count || 0), 0) || 0,
         byType: stats || [],
         timestamp: new Date().toISOString(),
       };

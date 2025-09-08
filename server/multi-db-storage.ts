@@ -128,7 +128,7 @@ export class MultiDatabaseStorage {
   async getMarketPrices(region: string): Promise<MarketPrice[]> {
     try {
       const cacheKey = CacheManager.keys.prices(region);
-      const cached = CacheManager.get('prices', cacheKey);
+      const cached = CacheManager.get<MarketPrice[]>('prices', cacheKey);
       
       if (cached) {
         return cached;
@@ -175,10 +175,10 @@ export class MultiDatabaseStorage {
   }
 
   // Enhanced community posts with real-time features
-  async getCommunityPosts(region: string, limit: number = 20, currentUserId?: number): Promise<any[]> {
+  async getCommunityPosts(region: string, limit: number = 20, userId?: number): Promise<CommunityPost[]> {
     try {
-      const cacheKey = CacheManager.keys.posts(region, limit, currentUserId);
-      const cached = CacheManager.get('posts', cacheKey);
+      const cacheKey = CacheManager.keys.posts(region, limit, userId);
+      const cached = CacheManager.get<CommunityPost[]>('posts', cacheKey);
       
       if (cached) {
         return cached;
@@ -198,10 +198,10 @@ export class MultiDatabaseStorage {
             SELECT COUNT(*) FROM ${communityComments} 
             WHERE ${communityComments.postId} = ${communityPosts.id}
           )`,
-          hasLiked: currentUserId ? sql<boolean>`EXISTS (
+          hasLiked: userId ? sql<boolean>`EXISTS (
             SELECT 1 FROM ${communityLikes} 
             WHERE ${communityLikes.postId} = ${communityPosts.id} 
-            AND ${communityLikes.userId} = ${currentUserId}
+            AND ${communityLikes.userId} = ${userId}
           )` : sql<boolean>`false`
         })
         .from(communityPosts)
@@ -285,10 +285,11 @@ export class MultiDatabaseStorage {
       const user = await this.getUser(userId);
       if (!user) return false;
 
-      // Backup to PocketBase
-      await pocketbase.collection('users').upsert({
-        id: user.id.toString(),
-        ...user
+      // Create user in PocketBase for backup
+      const { id, ...userData } = user;
+      await pocketbase.collection('users').create({
+        id: id.toString(),
+        ...userData
       });
 
       console.log(`✅ User ${userId} backed up to PocketBase`);
@@ -311,9 +312,10 @@ export class MultiDatabaseStorage {
       // Sync to PocketBase for backup
       const pocketbase = this.dbManager.getConnection('pocketbase');
       if (pocketbase) {
+        const { id, ...userData } = user;
         await pocketbase.collection('users').upsert({
-          id: user.id.toString(),
-          ...user
+          id: id.toString(),
+          ...userData
         });
       }
     } catch (error) {
