@@ -1,136 +1,113 @@
-import { 
-  users, 
-  tontines, 
-  tontineMembers, 
-  tontinePayments, 
-  marketPrices, 
-  communityPosts, 
+// Core types from schema
+import type {
+  User,
+  InsertUser,
+  UserSession,
+  Tontine,
+  InsertTontine,
+  TontineMember,
+  TontinePayment,
+  InsertTontinePayment,
+  TontineInvite,
+  InsertTontineInvite,
+  SupportTicket,
+  InsertSupportTicket,
+  MarketPrice,
+  InsertMarketPrice,
+  CommunityPost,
+  InsertCommunityPost,
+  CommunityComment,
+  InsertCommunityComment,
+  UserWallet,
+  InsertWalletTransaction,
+  WalletTransaction,
+  ScheduledPayment,
+  InsertScheduledPayment,
+  MarketplaceListing,
+  InsertMarketplaceListing,
+  MarketplaceBid,
+  InsertMarketplaceBid,
+  MarketplaceOrder,
+  InsertMarketplaceOrder,
+  CommunityForum,
+  InsertCommunityForum,
+  ForumPost,
+  InsertForumPost,
+  KnowledgeArticle,
+  InsertKnowledgeArticle,
+  CommunityEvent,
+  InsertCommunityEvent,
+  ImpactMetric,
+  InsertImpactMetric,
+  CarbonCredit,
+  InsertCarbonCredit,
+  SustainabilityPractice,
+  InsertSustainabilityPractice,
+  SdgTracking,
+  InsertSdgTracking,
+  AdminAuditLog,
+  InsertAdminAuditLog,
+  AutomationRule,
+  InsertAutomationRule,
+  AutomationExecution,
+  InsertAutomationExecution,
+  AdminNotification,
+  InsertAdminNotification,
+  AdminDashboard,
+  InsertAdminDashboard,
+  SystemMetric,
+  InsertSystemMetric,
+  AdminWorkflow,
+  InsertAdminWorkflow,
+  AdminReport,
+  InsertAdminReport,
+  AdminSetting,
+  InsertAdminSetting,
+  AdminApiKey,
+  InsertAdminApiKey,
+  AdminScheduledTask,
+  InsertAdminScheduledTask,
+  AdminDataExport,
+  InsertAdminDataExport,
+  UserRole,
+  InsertUserRole,
+  UserPermission,
+  InsertUserPermission
+} from '../shared/schema';
+
+// Database tables
+import {
+  users,
+  userSessions,
+  tontines,
+  tontineMembers,
+  tontinePayments,
+  tontineInvites,
+  marketPrices,
+  communityPosts,
   communityComments,
   communityLikes,
   supportTickets,
-  tontineInvites,
-  userSessions,
-  // New imports for advanced features
-  userWallets,
-  walletTransactions,
-  scheduledPayments,
-  marketplaceListings,
-  marketplaceOrders,
-  marketplaceBids,
-  communityForums,
-  forumMembers,
-  forumPosts,
-  forumComments,
-  knowledgeArticles,
-  communityEvents,
-  eventAttendees,
-  impactMetrics,
-  carbonCredits,
-  sustainabilityPractices,
-  sdgTracking,
-  // Admin automation imports
-  adminAuditLogs,
-  automationRules,
-  automationExecutions,
+  userPermissions,
   adminNotifications,
   adminDashboards,
-  systemMetrics,
-  adminWorkflows,
-  adminReports,
-  adminSettings,
-  adminApiKeys,
-  adminScheduledTasks,
-  adminDataExports,
-  userRoles,
-  userPermissions,
-  type User, 
-  type InsertUser,
-  type Tontine,
-  type InsertTontine,
-  type TontineMember,
-  type TontinePayment,
-  type InsertTontinePayment,
-  type MarketPrice,
-  type InsertMarketPrice,
-  type CommunityPost,
-  type InsertCommunityPost,
-  type CommunityComment,
-  type InsertCommunityComment,
-  type CommunityLike,
-  type InsertCommunityLike,
-  type SupportTicket,
-  type InsertSupportTicket,
-  type TontineInvite,
-  type InsertTontineInvite,
-  type UserSession,
-  // New types for advanced features
-  type UserWallet,
-  type InsertUserWallet,
-  type WalletTransaction,
-  type InsertWalletTransaction,
-  type ScheduledPayment,
-  type InsertScheduledPayment,
-  type MarketplaceListing,
-  type InsertMarketplaceListing,
-  type MarketplaceOrder,
-  type InsertMarketplaceOrder,
-  type MarketplaceBid,
-  type InsertMarketplaceBid,
-  type CommunityForum,
-  type InsertCommunityForum,
-  type ForumMember,
-  type InsertForumMember,
-  type ForumPost,
-  type InsertForumPost,
-  type ForumComment,
-  type InsertForumComment,
-  type KnowledgeArticle,
-  type InsertKnowledgeArticle,
-  type CommunityEvent,
-  type InsertCommunityEvent,
-  type EventAttendee,
-  type InsertEventAttendee,
-  type ImpactMetric,
-  type InsertImpactMetric,
-  type CarbonCredit,
-  type InsertCarbonCredit,
-  type SustainabilityPractice,
-  type InsertSustainabilityPractice,
-  type SdgTracking,
-  type InsertSdgTracking,
-  // Admin automation types
-  type AdminAuditLog,
-  type InsertAdminAuditLog,
-  type AutomationRule,
-  type InsertAutomationRule,
-  type AutomationExecution,
-  type InsertAutomationExecution,
-  type AdminNotification,
-  type InsertAdminNotification,
-  type AdminDashboard,
-  type InsertAdminDashboard,
-  type SystemMetric,
-  type InsertSystemMetric,
-  type AdminWorkflow,
-  type InsertAdminWorkflow,
-  type AdminReport,
-  type InsertAdminReport,
-  type AdminSetting,
-  type InsertAdminSetting,
-  type AdminApiKey,
-  type InsertAdminApiKey,
-  type AdminScheduledTask,
-  type InsertAdminScheduledTask,
-  type AdminDataExport,
-  type InsertAdminDataExport,
-  type UserRole,
-  type InsertUserRole,
-  type UserPermission,
-  type InsertUserPermission
-} from "../shared/schema.js";
-import { db } from "./db.js";
-import { eq, and, desc, sql, gte, lte, count, lt, ne, or } from "drizzle-orm";
-import CacheManager from './cache.js';
+  adminReports
+} from '../shared/schema';
+
+// Drizzle ORM
+import { db } from './db';
+import { 
+  eq, 
+  or, 
+  sql, 
+  and, 
+  desc, 
+  gte, 
+  lte, 
+  count, 
+  lt, 
+  ne 
+} from 'drizzle-orm';
 
 export interface IStorage {
   // User management
@@ -319,19 +296,20 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  // User management methods
   async getUser(id: number): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user || undefined;
+    const [user] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+    return user;
   }
 
   async getUserByPhone(phone: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.phone, phone));
-    return user || undefined;
+    const [user] = await db.select().from(users).where(eq(users.phone, phone)).limit(1);
+    return user;
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.email, email));
-    return user || undefined;
+    const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    return user;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
@@ -356,6 +334,24 @@ export class DatabaseStorage implements IStorage {
       .update(users)
       .set({ lastActive: new Date() })
       .where(eq(users.id, id));
+  }
+
+  async searchUsers(query: string): Promise<User[]> {
+    if (!query) {
+      return [];
+    }
+    
+    const searchTerm = `%${query}%`;
+    return db.select()
+      .from(users)
+      .where(
+        or(
+          sql`LOWER(${users.name}) LIKE LOWER(${searchTerm})`,
+          sql`LOWER(${users.email}) LIKE LOWER(${searchTerm})`,
+          sql`${users.phone} LIKE ${searchTerm}`
+        )
+      )
+      .limit(50); // Limit to 50 results for performance
   }
 
   async createSession(userId: number, sessionToken: string, expiresAt: Date): Promise<UserSession> {
@@ -676,15 +672,6 @@ export class DatabaseStorage implements IStorage {
     return supportTicket;
   }
 
-  async searchUsers(query: string): Promise<User[]> {
-    return await db
-      .select()
-      .from(users)
-      .where(
-        sql`${users.name} ILIKE ${`%${query}%`} OR ${users.phone} ILIKE ${`%${query}%`}`
-      )
-      .limit(10);
-  }
 
   async initializeUserWallet(userId: number): Promise<UserWallet> {
     // Implementation needed
