@@ -26,6 +26,7 @@
     "moduleSuffixes": [".js", ".ts", ".json"],
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
+    "verbatimModuleSyntax": true,
     "isolatedModules": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
@@ -41,7 +42,6 @@
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
     "noPropertyAccessFromIndexSignature": true,
-    "verbatimModuleSyntax": true,
     "exactOptionalPropertyTypes": true
   },
   "include": [
