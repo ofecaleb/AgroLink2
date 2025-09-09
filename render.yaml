@@ -4,7 +4,8 @@ services:
     env: node
     plan: free
     buildCommand: |
-      npm ci
+      rm -rf node_modules
+      npm install --production=false
       npm run build:server
       npm run build:frontend
     startCommand: node dist/server/index.js

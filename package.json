@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "cross-env NODE_ENV=development node --loader ts-node/esm server/index.ts",
     "dev:tsx": "cross-env NODE_ENV=development tsx server/index.ts",
-    "install": "npm install --only=prod",
+    "install": "echo 'Skipping install in favor of production-only install' && exit 0",
     "build": "npm run build:server && npm run build:frontend",
     "build:server": "tsc -p tsconfig.server.json",
     "build:frontend": "vite build",
