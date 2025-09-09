@@ -6,10 +6,10 @@
   "scripts": {
     "dev": "cross-env NODE_ENV=development node --loader ts-node/esm server/index.ts",
     "dev:tsx": "cross-env NODE_ENV=development tsx server/index.ts",
-    "build": "npm install && npm run build:server && npm run build:frontend",
+    "install": "npm install --only=prod",
+    "build": "npm run build:server && npm run build:frontend",
     "build:server": "tsc -p tsconfig.server.json",
     "build:frontend": "vite build",
-    "prepare": "npm run build",
     "start": "node dist/server/index.js",
     "check": "npm run type-check",
     "type-check": "tsc -p tsconfig.server.json --noEmit && tsc -p tsconfig.client.json --noEmit",
@@ -17,6 +17,10 @@
     "dev:frontend": "vite",
     "preview:frontend": "vite preview"
   },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "cacheDirectories": ["node_modules"],
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
     "@jridgewell/trace-mapping": "^0.3.25",

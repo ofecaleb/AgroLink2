@@ -4,8 +4,9 @@ services:
     env: node
     plan: free
     buildCommand: |
-      npm install
-      npm run build
+      npm ci
+      npm run build:server
+      npm run build:frontend
     startCommand: node dist/server/index.js
     envVars:
       - key: NODE_ENV
