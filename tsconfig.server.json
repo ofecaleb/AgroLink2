@@ -41,7 +41,7 @@
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
     "noPropertyAccessFromIndexSignature": true,
-    "importsNotUsedAsValues": "error",
+    "verbatimModuleSyntax": true,
     "exactOptionalPropertyTypes": true
   },
   "include": [
