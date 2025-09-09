@@ -19,8 +19,7 @@
       "drizzle-orm": ["./node_modules/drizzle-orm"]
     },
     "typeRoots": [
-      "./node_modules/@types",
-      "./types"
+      "./node_modules/@types"
     ],
     "types": ["node"],
     "moduleSuffixes": [".js", ".ts", ".json"],
@@ -52,8 +51,9 @@
   "exclude": [
     "node_modules",
     "dist",
-    "**/*.test.ts",
-    "**/*.spec.ts",
-    "client/**/*"
+    "**/.git",
+    "**/node_modules/*",
+    "**/dist/*",
+    "**/build/*"
   ]
 }

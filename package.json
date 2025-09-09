@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "cross-env NODE_ENV=development node --loader ts-node/esm server/index.ts",
     "dev:tsx": "cross-env NODE_ENV=development tsx server/index.ts",
-    "build": "npm run build:server && npm run build:frontend",
+    "build": "npm install && npm run build:server && npm run build:frontend",
     "build:server": "tsc -p tsconfig.server.json",
     "build:frontend": "vite build",
     "prepare": "npm run build",
