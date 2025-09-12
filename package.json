@@ -15,12 +15,20 @@
     "type-check": "tsc -p tsconfig.server.json --noEmit && tsc -p tsconfig.client.json --noEmit",
     "db:push": "drizzle-kit push",
     "dev:frontend": "vite",
-    "preview:frontend": "vite preview"
+    "preview:frontend": "vite preview",
+    "migrate:to-supabase": "tsx scripts/migrate-to-supabase.ts",
+    "migrate:test-connections": "tsx scripts/test-connections.ts",
+    "migrate": "tsx scripts/run-migration.ts",
+    "db:setup": "tsx scripts/setup-supabase-schema.ts",
+    "db:migrate": "tsx scripts/migrate-data.ts",
+    "db:reset": "tsx scripts/reset-supabase.ts"
   },
   "engines": {
     "node": ">=16.0.0"
   },
-  "cacheDirectories": ["node_modules"],
+  "cacheDirectories": [
+    "node_modules"
+  ],
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
     "@jridgewell/trace-mapping": "^0.3.25",
@@ -54,7 +62,6 @@
     "@radix-ui/react-tooltip": "^1.2.0",
     "@replit/vite-plugin-cartographer": "^0.2.7",
     "@replit/vite-plugin-runtime-error-modal": "^0.0.3",
-    "@supabase/supabase-js": "^2.50.3",
     "@tailwindcss/typography": "^0.5.15",
     "@tailwindcss/vite": "^4.1.11",
     "@tanstack/react-query": "^5.60.5",
@@ -80,7 +87,6 @@
     "cors": "^2.8.5",
     "cross-env": "^7.0.3",
     "date-fns": "^3.6.0",
-    "dotenv": "^16.6.1",
     "drizzle-kit": "^0.31.4",
     "drizzle-orm": "^0.39.3",
     "drizzle-zod": "^0.7.0",
@@ -89,7 +95,6 @@
     "express": "^4.21.2",
     "express-session": "^1.18.1",
     "firebase": "^11.10.0",
-    "firebase-admin": "^13.4.0",
     "framer-motion": "^11.13.1",
     "input-otp": "^1.4.2",
     "jsonwebtoken": "^9.0.2",
@@ -98,6 +103,7 @@
     "memorystore": "^1.6.7",
     "multer": "^2.0.1",
     "next-themes": "^0.4.6",
+    "node-fetch": "^2.7.0",
     "passport": "^0.7.0",
     "passport-local": "^1.0.0",
     "pocketbase": "^0.26.1",
@@ -112,8 +118,6 @@
     "tailwind-merge": "^2.6.0",
     "tailwindcss": "^3.4.17",
     "tailwindcss-animate": "^1.0.7",
-    "ts-node": "^10.9.2",
-    "tsx": "^4.19.1",
     "vaul": "^1.1.2",
     "vite": "^5.4.19",
     "wouter": "^3.3.5",
@@ -125,11 +129,18 @@
     "bufferutil": "^4.0.8"
   },
   "devDependencies": {
+    "@supabase/supabase-js": "^2.57.4",
     "@types/cors": "^2.8.19",
     "@types/node": "^24.3.1",
     "@types/nodemailer": "^7.0.1",
+    "@types/pg": "^8.15.5",
     "@types/twilio": "^3.19.2",
+    "dotenv": "^16.6.1",
+    "firebase-admin": "^11.11.1",
+    "pg": "^8.16.3",
     "prepend-file": "^2.0.1",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.20.5",
     "typescript": "^5.9.2"
   }
 }
