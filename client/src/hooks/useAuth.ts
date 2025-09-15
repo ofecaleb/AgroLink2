@@ -1,137 +1,140 @@
 import { useState, useEffect, useCallback } from 'react';
-import { authService, type LoginCredentials } from '../lib/auth';
-import type { User, AuthState } from '../types';
+import { authService, type LoginCredentials, type RegisterData, type AuthUser } from '../lib/auth';
+
+export interface AuthState {
+  user: AuthUser | null;
+  session: any;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  isEmailVerified: boolean;
+}
 
 export function useAuth() {
   const [authState, setAuthState] = useState<AuthState>({
     user: authService.getUser(),
-    token: authService.getToken(),
+    session: authService.getSession(),
     isAuthenticated: authService.isAuthenticated(),
-    isLoading: false
+    isLoading: true,
+    isEmailVerified: authService.isEmailVerified()
   });
 
-  // Force re-render when auth state changes
-  const [, forceUpdate] = useState({});
-
-  const updateAuthState = useCallback((newState: Partial<AuthState>) => {
-    setAuthState(prev => ({ ...prev, ...newState }));
-    forceUpdate({});
+  const updateAuthState = useCallback(() => {
+    setAuthState({
+      user: authService.getUser(),
+      session: authService.getSession(),
+      isAuthenticated: authService.isAuthenticated(),
+      isLoading: false,
+      isEmailVerified: authService.isEmailVerified()
+    });
   }, []);
 
   useEffect(() => {
-    // Set up session management
-    authService.setupSessionTimeout();
-    authService.setupActivityTracking();
+    // Initial state update
+    updateAuthState();
 
-    // Listen for session expired events
-    const handleSessionExpired = () => {
-      updateAuthState({
-        user: null,
-        token: null,
-        isAuthenticated: false,
-        isLoading: false
-      });
+    // Listen for auth state changes
+    const handleAuthStateChange = () => {
+      updateAuthState();
     };
 
-    window.addEventListener('sessionExpired', handleSessionExpired);
+    window.addEventListener('authStateChange', handleAuthStateChange);
 
     return () => {
-      authService.clearSessionTimeout();
-      window.removeEventListener('sessionExpired', handleSessionExpired);
+      window.removeEventListener('authStateChange', handleAuthStateChange);
     };
   }, [updateAuthState]);
 
-  // Accepts either (email, password) or (phone, pin)
-  const login = async (identifier: string, secret: string, usePassword: boolean) => {
+  const login = async (credentials: LoginCredentials) => {
+    setAuthState(prev => ({ ...prev, isLoading: true }));
+    
     try {
-      updateAuthState({ isLoading: true });
+      const result = await authService.signIn(credentials);
       
-      let credentials: LoginCredentials = { phone: '' };
-      
-      if (usePassword) {
-        if (identifier.includes('@')) {
-          credentials = { phone: '', email: identifier, password: secret };
-        } else {
-          credentials = { phone: identifier, password: secret };
-        }
-      } else {
-        credentials = { phone: identifier, pin: secret };
+      if (result.error) {
+        setAuthState(prev => ({ ...prev, isLoading: false }));
+        return { success: false, error: result.error };
       }
-      
-      const result = await authService.login(credentials);
-      
-      updateAuthState({
-        user: result.user,
-        token: result.token,
-        isAuthenticated: true,
-        isLoading: false
-      });
-      
+
+      updateAuthState();
       return { success: true };
     } catch (error: any) {
-      updateAuthState({ isLoading: false });
-      return { success: false, error: error.message };
+      setAuthState(prev => ({ ...prev, isLoading: false }));
+      return { success: false, error: error.message || 'Login failed' };
     }
   };
 
-  const register = async (data: any) => {
+  const register = async (userData: RegisterData) => {
+    setAuthState(prev => ({ ...prev, isLoading: true }));
+    
     try {
-      updateAuthState({ isLoading: true });
+      const result = await authService.signUp(userData);
       
-      const user = await authService.register(data);
-      
-      updateAuthState({ isLoading: false });
-      
-      return { success: true, user };
-    } catch (error: any) {
-      updateAuthState({ isLoading: false });
-      return { success: false, error: error.message };
-    }
-  };
+      if (result.error) {
+        setAuthState(prev => ({ ...prev, isLoading: false }));
+        return { success: false, error: result.error };
+      }
 
-  const resetPassword = async (data: any) => {
-    try {
-      // Implementation for password reset
-      return { success: true, message: 'Reset request sent' };
+      updateAuthState();
+      return { success: true, user: result.user };
     } catch (error: any) {
-      return { success: false, error: error.message };
+      setAuthState(prev => ({ ...prev, isLoading: false }));
+      return { success: false, error: error.message || 'Registration failed' };
     }
   };
 
   const logout = async () => {
-    updateAuthState({ isLoading: true });
+    setAuthState(prev => ({ ...prev, isLoading: true }));
     
     try {
-      await authService.logout();
-      updateAuthState({
-        user: null,
-        token: null,
-        isAuthenticated: false,
-        isLoading: false
-      });
-      // Force a page refresh to clear any cached state
-      window.location.reload();
+      const result = await authService.signOut();
+      
+      if (result.error) {
+        console.error('Logout error:', result.error);
+      }
+
+      updateAuthState();
     } catch (error) {
-      // Even if logout fails on server, clear local auth state
-      updateAuthState({
-        user: null,
-        token: null,
-        isAuthenticated: false,
-        isLoading: false
-      });
-      // Force a page refresh to clear any cached state
-      window.location.reload();
+      console.error('Logout error:', error);
+      updateAuthState();
     }
   };
 
-  const refreshProfile = async () => {
+  const resetPassword = async (data: { email?: string; phone?: string }) => {
     try {
-      const user = await authService.refreshProfile();
-      if (user) {
-        updateAuthState({ user });
+      const result = await authService.resetPassword(data);
+      return result;
+    } catch (error: any) {
+      return { error: error.message || 'Password reset failed' };
+    }
+  };
+
+  const updatePassword = async (newPassword: string) => {
+    try {
+      const result = await authService.updatePassword(newPassword);
+      return result;
+    } catch (error: any) {
+      return { error: error.message || 'Password update failed' };
+    }
+  };
+
+  const updateProfile = async (updates: Partial<AuthUser>) => {
+    try {
+      const result = await authService.updateProfile(updates);
+      if (result.user) {
+        updateAuthState();
       }
-    } catch (error) {
-      console.error('Failed to refresh profile:', error);
+      return result;
+    } catch (error: any) {
+      return { error: error.message || 'Profile update failed' };
+    }
+  };
+
+  const resendVerificationEmail = async () => {
+    try {
+      const result = await authService.resendVerificationEmail();
+      return result;
+    } catch (error: any) {
+      return { error: error.message || 'Failed to resend verification email' };
     }
   };
 
@@ -139,8 +142,10 @@ export function useAuth() {
     ...authState,
     login,
     register,
-    resetPassword,
     logout,
-    refreshProfile
+    resetPassword,
+    updatePassword,
+    updateProfile,
+    resendVerificationEmail
   };
 }

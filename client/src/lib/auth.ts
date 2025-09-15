@@ -1,32 +1,59 @@
-import type { User } from '../types';
+import { supabase } from './supabase';
+import type { User, Session } from '@supabase/supabase-js';
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  phone: string;
+  name: string;
+  avatar_url?: string;
+  country: string;
+  region: string;
+  language: string;
+  currency: string;
+  role: string;
+  plan: string;
+  balance: number;
+  is_active: boolean;
+  is_verified: boolean;
+  last_active?: string;
+  metadata?: any;
+  created_at: string;
+  updated_at: string;
+}
 
 export interface LoginCredentials {
-  phone: string;
   email?: string;
-  pin?: string;
-  password?: string;
+  phone?: string;
+  password: string;
 }
 
 export interface RegisterData {
+  email: string;
   phone: string;
-  pin: string;
-  password?: string;
+  password: string;
   name: string;
+  country: string;
   region: string;
-  email?: string;
-  country?: string;
   language?: string;
+  currency?: string;
 }
 
 export interface AuthResponse {
-  user: User;
-  token: string;
+  user: AuthUser | null;
+  session: Session | null;
+  error?: string;
+}
+
+export interface PasswordResetData {
+  email?: string;
+  phone?: string;
 }
 
 export class AuthService {
   private static instance: AuthService;
-  private token: string | null = null;
-  private user: User | null = null;
+  private currentUser: AuthUser | null = null;
+  private currentSession: Session | null = null;
 
   static getInstance(): AuthService {
     if (!AuthService.instance) {
@@ -36,163 +63,310 @@ export class AuthService {
   }
 
   constructor() {
-    // Load auth data from localStorage
-    this.token = localStorage.getItem('authToken');
-    const userData = localStorage.getItem('authUser');
-    if (userData) {
-      try {
-        this.user = JSON.parse(userData);
-      } catch (e) {
-        console.error('Failed to parse user data from localStorage');
-        this.clearAuth();
-      }
-    }
+    this.initializeAuth();
   }
 
-  async login(credentials: LoginCredentials): Promise<AuthResponse> {
-    const response = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(credentials),
-    });
-    
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Login failed');
-    }
-    
-    const data = await response.json() as AuthResponse;
-    
-    this.setAuth(data.token, data.user);
-    return data;
-  }
-
-  async register(userData: RegisterData): Promise<User> {
-    const response = await fetch('/api/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(userData),
-    });
-    
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Registration failed');
-    }
-    
-    const data = await response.json();
-    return data.user;
-  }
-
-  async logout(): Promise<void> {
-    if (this.token) {
-      try {
-        await fetch('/api/auth/logout', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${this.token}`,
-          },
-        });
-      } catch (error) {
-        console.error('Logout request failed:', error);
-      }
-    }
-    
-    this.clearAuth();
-  }
-
-  async refreshProfile(): Promise<User | null> {
-    if (!this.token) return null;
-
+  private async initializeAuth() {
     try {
-      const response = await fetch('/api/user/profile', {
-        headers: {
-          'Authorization': `Bearer ${this.token}`,
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to refresh profile');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        this.currentSession = session;
+        await this.loadUserProfile(session.user.id);
       }
-      
-      const user = await response.json() as User;
-      this.setUser(user);
-      return user;
+
+      // Listen for auth changes
+      supabase.auth.onAuthStateChange(async (event, session) => {
+        this.currentSession = session;
+        
+        if (session?.user) {
+          await this.loadUserProfile(session.user.id);
+        } else {
+          this.currentUser = null;
+        }
+
+        // Emit custom event for components to listen
+        window.dispatchEvent(new CustomEvent('authStateChange', {
+          detail: { event, session, user: this.currentUser }
+        }));
+      });
     } catch (error) {
-      console.error('Failed to refresh profile:', error);
-      this.clearAuth();
-      return null;
+      console.error('Auth initialization error:', error);
     }
   }
 
-  getToken(): string | null {
-    return this.token;
+  private async loadUserProfile(userId: string): Promise<void> {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.error('Error loading user profile:', error);
+        return;
+      }
+
+      this.currentUser = data;
+    } catch (error) {
+      console.error('Error loading user profile:', error);
+    }
   }
 
-  getUser(): User | null {
-    return this.user;
+  async signUp(userData: RegisterData): Promise<AuthResponse> {
+    try {
+      // First, sign up with Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: userData.email,
+        password: userData.password,
+        options: {
+          data: {
+            name: userData.name,
+            phone: userData.phone,
+          }
+        }
+      });
+
+      if (authError) {
+        return { user: null, session: null, error: authError.message };
+      }
+
+      if (!authData.user) {
+        return { user: null, session: null, error: 'Failed to create user account' };
+      }
+
+      // Create user profile in our users table
+      const { data: profileData, error: profileError } = await supabase
+        .from('users')
+        .insert({
+          id: authData.user.id,
+          email: userData.email,
+          phone: userData.phone,
+          name: userData.name,
+          country: userData.country,
+          region: userData.region,
+          language: userData.language || 'en',
+          currency: userData.currency || 'XAF',
+          role: 'user',
+          plan: 'free',
+          balance: 0,
+          is_active: true,
+          is_verified: false
+        })
+        .select()
+        .single();
+
+      if (profileError) {
+        console.error('Profile creation error:', profileError);
+        // Clean up auth user if profile creation fails
+        await supabase.auth.admin.deleteUser(authData.user.id);
+        return { user: null, session: null, error: 'Failed to create user profile' };
+      }
+
+      this.currentUser = profileData;
+      this.currentSession = authData.session;
+
+      return { 
+        user: profileData, 
+        session: authData.session, 
+        error: undefined 
+      };
+    } catch (error: any) {
+      console.error('Sign up error:', error);
+      return { user: null, session: null, error: error.message || 'Registration failed' };
+    }
+  }
+
+  async signIn(credentials: LoginCredentials): Promise<AuthResponse> {
+    try {
+      let email = credentials.email;
+
+      // If phone is provided instead of email, look up email by phone
+      if (credentials.phone && !credentials.email) {
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('email')
+          .eq('phone', credentials.phone)
+          .single();
+
+        if (userError || !userData) {
+          return { user: null, session: null, error: 'User not found with this phone number' };
+        }
+
+        email = userData.email;
+      }
+
+      if (!email) {
+        return { user: null, session: null, error: 'Email or phone number is required' };
+      }
+
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password: credentials.password,
+      });
+
+      if (error) {
+        return { user: null, session: null, error: error.message };
+      }
+
+      if (!data.user) {
+        return { user: null, session: null, error: 'Login failed' };
+      }
+
+      await this.loadUserProfile(data.user.id);
+      this.currentSession = data.session;
+
+      // Update last active timestamp
+      await supabase
+        .from('users')
+        .update({ last_active: new Date().toISOString() })
+        .eq('id', data.user.id);
+
+      return { 
+        user: this.currentUser, 
+        session: data.session, 
+        error: undefined 
+      };
+    } catch (error: any) {
+      console.error('Sign in error:', error);
+      return { user: null, session: null, error: error.message || 'Login failed' };
+    }
+  }
+
+  async signOut(): Promise<{ error?: string }> {
+    try {
+      const { error } = await supabase.auth.signOut();
+      
+      this.currentUser = null;
+      this.currentSession = null;
+
+      if (error) {
+        return { error: error.message };
+      }
+
+      return {};
+    } catch (error: any) {
+      console.error('Sign out error:', error);
+      return { error: error.message || 'Logout failed' };
+    }
+  }
+
+  async resetPassword(data: PasswordResetData): Promise<{ error?: string; message?: string }> {
+    try {
+      let email = data.email;
+
+      // If phone is provided instead of email, look up email by phone
+      if (data.phone && !data.email) {
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('email')
+          .eq('phone', data.phone)
+          .single();
+
+        if (userError || !userData) {
+          return { error: 'User not found with this phone number' };
+        }
+
+        email = userData.email;
+      }
+
+      if (!email) {
+        return { error: 'Email or phone number is required' };
+      }
+
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      if (error) {
+        return { error: error.message };
+      }
+
+      return { message: 'Password reset email sent successfully' };
+    } catch (error: any) {
+      console.error('Password reset error:', error);
+      return { error: error.message || 'Password reset failed' };
+    }
+  }
+
+  async updatePassword(newPassword: string): Promise<{ error?: string; message?: string }> {
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) {
+        return { error: error.message };
+      }
+
+      return { message: 'Password updated successfully' };
+    } catch (error: any) {
+      console.error('Password update error:', error);
+      return { error: error.message || 'Password update failed' };
+    }
+  }
+
+  async updateProfile(updates: Partial<AuthUser>): Promise<{ error?: string; user?: AuthUser }> {
+    try {
+      if (!this.currentUser) {
+        return { error: 'No user logged in' };
+      }
+
+      const { data, error } = await supabase
+        .from('users')
+        .update(updates)
+        .eq('id', this.currentUser.id)
+        .select()
+        .single();
+
+      if (error) {
+        return { error: error.message };
+      }
+
+      this.currentUser = data;
+      return { user: data };
+    } catch (error: any) {
+      console.error('Profile update error:', error);
+      return { error: error.message || 'Profile update failed' };
+    }
+  }
+
+  async resendVerificationEmail(): Promise<{ error?: string; message?: string }> {
+    try {
+      if (!this.currentSession?.user?.email) {
+        return { error: 'No email found for current user' };
+      }
+
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: this.currentSession.user.email,
+      });
+
+      if (error) {
+        return { error: error.message };
+      }
+
+      return { message: 'Verification email sent successfully' };
+    } catch (error: any) {
+      console.error('Resend verification error:', error);
+      return { error: error.message || 'Failed to resend verification email' };
+    }
+  }
+
+  getUser(): AuthUser | null {
+    return this.currentUser;
+  }
+
+  getSession(): Session | null {
+    return this.currentSession;
   }
 
   isAuthenticated(): boolean {
-    return this.token !== null && this.user !== null;
+    return this.currentSession !== null && this.currentUser !== null;
   }
 
-  private setAuth(token: string, user: User): void {
-    this.token = token;
-    this.user = user;
-    localStorage.setItem('authToken', token);
-    localStorage.setItem('authUser', JSON.stringify(user));
-  }
-
-  private setUser(user: User): void {
-    this.user = user;
-    localStorage.setItem('authUser', JSON.stringify(user));
-  }
-
-  private clearAuth(): void {
-    this.token = null;
-    this.user = null;
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('authUser');
-  }
-
-  // Session management
-  private sessionTimeout: NodeJS.Timeout | null = null;
-
-  setupSessionTimeout(): void {
-    this.clearSessionTimeout();
-    
-    // Set timeout for 25 minutes (less than server's 30 minutes)
-    this.sessionTimeout = setTimeout(() => {
-      this.logout();
-      // You can emit an event here to show session expired notification
-      window.dispatchEvent(new CustomEvent('sessionExpired'));
-    }, 25 * 60 * 1000);
-  }
-
-  resetSessionTimeout(): void {
-    if (this.isAuthenticated()) {
-      this.setupSessionTimeout();
-    }
-  }
-
-  clearSessionTimeout(): void {
-    if (this.sessionTimeout) {
-      clearTimeout(this.sessionTimeout);
-      this.sessionTimeout = null;
-    }
-  }
-
-  // Activity tracking
-  setupActivityTracking(): void {
-    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
-    
-    const handleActivity = () => {
-      this.resetSessionTimeout();
-    };
-
-    events.forEach(event => {
-      document.addEventListener(event, handleActivity, { passive: true });
-    });
+  isEmailVerified(): boolean {
+    return this.currentSession?.user?.email_confirmed_at !== null;
   }
 }
 

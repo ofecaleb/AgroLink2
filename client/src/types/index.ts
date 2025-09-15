@@ -1,95 +1,152 @@
 export interface User {
-  id: number;
+  id: string;
+  email: string;
   phone: string;
-  email?: string;
   name: string;
+  avatar_url?: string;
   country: string;
   region: string;
   language: string;
   currency: string;
-  profilePicture?: string;
-  avatar?: string;
-  plan: string;
   role: string;
+  plan: string;
   balance: number;
-  lastActive: string;
-  createdAt: string;
+  is_active: boolean;
+  is_verified: boolean;
+  last_active?: string;
+  metadata?: any;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Tontine {
-  id: number;
+  id: string;
   name: string;
-  leaderId: number;
-  monthlyContribution: number;
-  totalContributions: number;
-  currentPayoutTurn: number;
-  nextPayoutDate: string | null;
-  status: string;
-  region: string;
   description?: string;
-  payoutSchedule?: 'monthly' | 'quarterly' | 'bi-annual';
-  maxMembers?: number;
+  leader_id: string;
+  monthly_contribution: number;
+  max_members: number;
+  current_members: number;
+  payout_schedule: 'monthly' | 'quarterly' | 'bi-annual';
+  total_contributions: number;
+  current_payout_turn: number;
+  next_payout_date?: string;
+  status: 'pending' | 'active' | 'completed' | 'cancelled';
+  region: string;
   rules?: string;
-  createdAt: string;
+  is_active: boolean;
+  approved_by?: string;
+  approved_at?: string;
+  rejected_by?: string;
+  rejected_at?: string;
+  rejection_reason?: string;
+  metadata?: any;
+  created_at: string;
+  updated_at: string;
   members?: TontineMember[];
-  memberCount?: number;
-  currentPosition?: number;
-  isLeader?: boolean;
+  leader?: User;
 }
 
 export interface TontineMember {
-  id: number;
-  tontineId: number;
-  userId: number;
-  joinedAt: string;
-  hasPaidCurrentMonth: boolean;
-  payoutPosition: number;
+  id: string;
+  tontine_id: string;
+  user_id: string;
+  payout_position: number;
+  has_paid_current_month: boolean;
+  total_contributed: number;
+  joined_at: string;
+  is_active: boolean;
   user?: User;
 }
 
 export interface TontinePayment {
-  id: number;
-  tontineId: number;
-  userId: number;
+  id: string;
+  tontine_id: string;
+  user_id: string;
   amount: number;
   fee: number;
-  paymentMethod: string;
-  status: string;
-  transactionId: string | null;
-  createdAt: string;
+  payment_method: string;
+  status: 'pending' | 'completed' | 'failed' | 'cancelled';
+  transaction_id?: string;
+  reference?: string;
+  metadata?: any;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TontineInvite {
+  id: string;
+  tontine_id: string;
+  invite_code: string;
+  created_by: string;
+  max_uses: number;
+  current_uses: number;
+  expires_at?: string;
+  is_active: boolean;
+  created_at: string;
 }
 
 export interface MarketPrice {
-  id: number;
+  id: string;
   crop: string;
   price: number;
   unit: string;
   region: string;
-  submittedBy: number;
-  isVerified: boolean;
-  verifiedBy: number | null;
-  createdAt: string;
+  submitted_by: string;
+  is_verified: boolean;
+  verified_by?: string;
+  verified_at?: string;
+  metadata?: any;
+  created_at: string;
+  updated_at: string;
+  submitted_by_user?: User;
+  verified_by_user?: User;
 }
 
 export interface CommunityPost {
-  id: number;
-  userId: number;
+  id: string;
+  user_id: string;
   content: string;
   region: string;
   likes: number;
   comments: number;
-  createdAt: string;
+  is_approved: boolean;
+  is_flagged: boolean;
+  flagged_reason?: string;
+  metadata?: any;
+  created_at: string;
+  updated_at: string;
+  user?: User;
+  comments_data?: CommunityComment[];
+  likes_data?: CommunityLike[];
+}
+
+export interface CommunityComment {
+  id: string;
+  post_id: string;
+  user_id: string;
+  content: string;
+  is_approved: boolean;
+  created_at: string;
   user?: User;
 }
 
+export interface CommunityLike {
+  id: string;
+  post_id: string;
+  user_id: string;
+  created_at: string;
+}
+
 export interface WeatherAlert {
-  id: number;
+  id: string;
   region: string;
-  alertType: string;
+  alert_type: string;
   message: string;
-  severity: string;
-  isActive: boolean;
-  createdAt: string;
+  severity: 'low' | 'medium' | 'high' | 'urgent';
+  is_active: boolean;
+  expires_at?: string;
+  created_at: string;
 }
 
 export interface WeatherData {
@@ -103,27 +160,32 @@ export interface WeatherData {
   uvIndex?: number;
 }
 
+export interface SupportTicket {
+  id: string;
+  user_id: string;
+  subject: string;
+  message: string;
+  category: string;
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  status: 'open' | 'in_progress' | 'resolved' | 'closed';
+  admin_response?: string;
+  assigned_to?: string;
+  resolved_at?: string;
+  created_at: string;
+  updated_at: string;
+  user?: User;
+}
+
 export type Language = 'en' | 'fr' | 'pid';
 
 export type Theme = 'light' | 'dark';
 
-export type Region = 'bamenda' | 'douala' | 'yaounde' | 'bafoussam';
-
-export type PaymentMethod = 'momo' | 'orange_money';
-
-export type PaymentStatus = 'pending' | 'completed' | 'failed';
-
-export type AlertSeverity = 'low' | 'medium' | 'high';
-
-export type UserRole = 'user' | 'admin';
-
-export type UserPlan = 'free' | 'premium';
-
 export interface AuthState {
   user: User | null;
-  token: string | null;
+  session: any;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isEmailVerified: boolean;
 }
 
 export interface AppState {
@@ -131,47 +193,5 @@ export interface AppState {
   theme: Theme;
   isOnline: boolean;
   currentView: string;
-  sessionTimeout: NodeJS.Timeout | null;
   tourCompleted: boolean;
-}
-
-export interface SupportTicket {
-  id: number;
-  userId: number;
-  subject: string;
-  message: string;
-  status: string;
-  priority: string;
-  category: string;
-  adminResponse?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface TontineInvite {
-  id: number;
-  tontineId: number;
-  inviteCode: string;
-  createdBy: number;
-  maxUses: number;
-  currentUses: number;
-  expiresAt?: string;
-  isActive: boolean;
-  createdAt: string;
-}
-
-export interface CommunityComment {
-  id: number;
-  postId: number;
-  userId: number;
-  content: string;
-  createdAt: string;
-  user?: User;
-}
-
-export interface CommunityLike {
-  id: number;
-  postId: number;
-  userId: number;
-  createdAt: string;
 }

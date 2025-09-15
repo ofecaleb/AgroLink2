@@ -1,307 +1,678 @@
-import type { 
-  Tontine, 
-  TontinePayment, 
-  MarketPrice, 
-  CommunityPost, 
-  WeatherAlert, 
-  WeatherData,
-  TontineInvite,
-  User,
-  SupportTicket,
-  CommunityComment
-} from '../types';
-import { authService } from './auth';
-
-// Get API base URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || '';
-
-// Add auth header to requests
-const authenticatedRequest = async (method: string, url: string, data?: unknown) => {
-  const token = authService.getToken();
-  if (!token) {
-    throw new Error('No authentication token available');
-  }
-
-  const response = await fetch(`${API_BASE_URL}${url}`, {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      ...(!data ? {} : {})
-    },
-    body: data ? JSON.stringify(data) : undefined,
-    credentials: 'include',
-  });
-
-  if (!response.ok) {
-    const text = (await response.text()) || response.statusText;
-    throw new Error(`${response.status}: ${text}`);
-  }
-
-  return response;
-};
+import { supabase } from './supabase';
+import type { AuthUser } from './auth';
 
 export class ApiService {
-  // Tontine API
-  static async createTontine(data: { name: string; monthlyContribution: number }): Promise<Tontine> {
-    const response = await authenticatedRequest('POST', '/api/tontines', data);
-    return response.json();
-  }
+  // User Management
+  static async getCurrentUser(): Promise<AuthUser | null> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) return null;
 
-  static async getTontines(): Promise<Tontine[]> {
-    const response = await authenticatedRequest('GET', '/api/tontines');
-    return response.json();
-  }
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', user.id)
+        .single();
 
-  static async getTontine(id: number): Promise<Tontine> {
-    const response = await authenticatedRequest('GET', `/api/tontines/${id}`);
-    return response.json();
-  }
+      if (error) {
+        console.error('Error fetching user:', error);
+        return null;
+      }
 
-  static async joinTontine(id: number): Promise<void> {
-    await authenticatedRequest('POST', `/api/tontines/${id}/join`);
-  }
-
-  // Tontine Payment API
-  static async createTontinePayment(tontineId: number, data: { amount: number; paymentMethod: string }): Promise<TontinePayment> {
-    const response = await authenticatedRequest('POST', `/api/tontines/${tontineId}/payments`, data);
-    return response.json();
-  }
-
-  static async getTontinePayments(tontineId: number): Promise<TontinePayment[]> {
-    const response = await authenticatedRequest('GET', `/api/tontines/${tontineId}/payments`);
-    return response.json();
-  }
-
-  // Market Price API
-  static async getMarketPrices(region?: string): Promise<MarketPrice[]> {
-    const url = region ? `/api/market-prices?region=${region}` : '/api/market-prices';
-    const response = await authenticatedRequest('GET', url);
-    return response.json();
-  }
-
-  static async createMarketPrice(data: { crop: string; price: number; unit?: string }): Promise<MarketPrice> {
-    const response = await authenticatedRequest('POST', '/api/market-prices', data);
-    return response.json();
-  }
-
-  static async verifyMarketPrice(priceId: number): Promise<void> {
-    await authenticatedRequest('POST', `/api/market-prices/${priceId}/verify`);
-  }
-
-  // Community API
-  static async getCommunityPosts(region?: string, limit?: number): Promise<{ post: CommunityPost; user: any }[]> {
-    let url = '/api/community/posts';
-    const params = new URLSearchParams();
-    if (region) params.append('region', region);
-    if (limit) params.append('limit', limit.toString());
-    
-    if (params.toString()) {
-      url += `?${params.toString()}`;
+      return data;
+    } catch (error) {
+      console.error('Error getting current user:', error);
+      return null;
     }
-
-    const response = await authenticatedRequest('GET', url);
-    return response.json();
   }
 
-  static async createCommunityPost(data: { content: string }): Promise<CommunityPost> {
-    const response = await authenticatedRequest('POST', '/api/community/posts', data);
-    return response.json();
+  static async updateUserProfile(updates: Partial<AuthUser>): Promise<{ user?: AuthUser; error?: string }> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        return { error: 'No authenticated user' };
+      }
+
+      const { data, error } = await supabase
+        .from('users')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id)
+        .select()
+        .single();
+
+      if (error) {
+        return { error: error.message };
+      }
+
+      return { user: data };
+    } catch (error: any) {
+      return { error: error.message || 'Failed to update profile' };
+    }
   }
 
-  // Weather API
-  static async getWeatherAlerts(region?: string): Promise<WeatherAlert[]> {
-    const url = region ? `/api/weather/alerts?region=${region}` : '/api/weather/alerts';
-    const response = await authenticatedRequest('GET', url);
-    return response.json();
+  // Tontine Management
+  static async getTontines(): Promise<any[]> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) throw new Error('Not authenticated');
+
+      const { data, error } = await supabase
+        .from('tontines')
+        .select(`
+          *,
+          leader:users!tontines_leader_id_fkey(name, phone),
+          members:tontine_members(
+            *,
+            user:users(name, phone, avatar_url)
+          )
+        `)
+        .or(`leader_id.eq.${user.id},id.in.(${await this.getUserTontineIds(user.id)})`);
+
+      if (error) throw error;
+
+      return data || [];
+    } catch (error: any) {
+      console.error('Error fetching tontines:', error);
+      throw new Error(error.message || 'Failed to fetch tontines');
+    }
   }
 
-  static async getCurrentWeather(region?: string): Promise<WeatherData> {
-    const url = region ? `/api/weather/current?region=${region}` : '/api/weather/current';
-    const response = await authenticatedRequest('GET', url);
-    return response.json();
+  private static async getUserTontineIds(userId: string): Promise<string> {
+    const { data } = await supabase
+      .from('tontine_members')
+      .select('tontine_id')
+      .eq('user_id', userId);
+
+    return data?.map(m => m.tontine_id).join(',') || '';
   }
 
-  // User profile management
-  static async updateUserProfile(data: Partial<User>): Promise<User> {
-    const response = await authenticatedRequest('PUT', '/api/user/profile', data);
-    return response.json();
+  static async createTontine(tontineData: any): Promise<any> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) throw new Error('Not authenticated');
+
+      const { data, error } = await supabase
+        .from('tontines')
+        .insert({
+          ...tontineData,
+          leader_id: user.id,
+          status: 'pending',
+          current_members: 1,
+          total_contributions: 0,
+          current_payout_turn: 0
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Add creator as first member
+      await supabase
+        .from('tontine_members')
+        .insert({
+          tontine_id: data.id,
+          user_id: user.id,
+          payout_position: 1,
+          has_paid_current_month: false,
+          total_contributed: 0
+        });
+
+      return data;
+    } catch (error: any) {
+      console.error('Error creating tontine:', error);
+      throw new Error(error.message || 'Failed to create tontine');
+    }
   }
 
-  // Password change
-  static async changePassword(currentPin: string, newPin: string): Promise<{ message: string; user: User }> {
-    const response = await authenticatedRequest('PUT', '/api/user/password', { currentPin, newPin });
-    return response.json();
+  // Market Prices
+  static async getMarketPrices(region?: string): Promise<any[]> {
+    try {
+      let query = supabase
+        .from('market_prices')
+        .select(`
+          *,
+          submitted_by_user:users!market_prices_submitted_by_fkey(name, phone),
+          verified_by_user:users!market_prices_verified_by_fkey(name, phone)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (region) {
+        query = query.eq('region', region);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      return data || [];
+    } catch (error: any) {
+      console.error('Error fetching market prices:', error);
+      throw new Error(error.message || 'Failed to fetch market prices');
+    }
   }
 
-  // Support tickets
-  static async createSupportTicket(data: { subject: string; message: string; category: string; priority: string }): Promise<SupportTicket> {
-    const response = await authenticatedRequest('POST', '/api/support/tickets', data);
-    return response.json();
+  static async createMarketPrice(priceData: any): Promise<any> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) throw new Error('Not authenticated');
+
+      const { data, error } = await supabase
+        .from('market_prices')
+        .insert({
+          ...priceData,
+          submitted_by: user.id,
+          is_verified: false
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return data;
+    } catch (error: any) {
+      console.error('Error creating market price:', error);
+      throw new Error(error.message || 'Failed to submit market price');
+    }
   }
 
-  static async getSupportTickets(): Promise<SupportTicket[]> {
-    const response = await authenticatedRequest('GET', '/api/support/tickets');
-    return response.json();
+  // Community Posts
+  static async getCommunityPosts(region?: string, limit?: number): Promise<any[]> {
+    try {
+      let query = supabase
+        .from('community_posts')
+        .select(`
+          *,
+          user:users(id, name, phone, avatar_url, region),
+          comments:community_comments(
+            *,
+            user:users(name, avatar_url)
+          ),
+          likes:community_likes(user_id)
+        `)
+        .eq('is_approved', true)
+        .order('created_at', { ascending: false });
+
+      if (region) {
+        query = query.eq('region', region);
+      }
+
+      if (limit) {
+        query = query.limit(limit);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      return data || [];
+    } catch (error: any) {
+      console.error('Error fetching community posts:', error);
+      throw new Error(error.message || 'Failed to fetch community posts');
+    }
   }
 
-  // Community interactions
-  static async createCommunityComment(postId: number, content: string): Promise<CommunityComment> {
-    const response = await authenticatedRequest('POST', '/api/community/comments', { postId, content });
-    return response.json();
+  static async createCommunityPost(postData: { content: string }): Promise<any> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) throw new Error('Not authenticated');
+
+      const currentUser = await this.getCurrentUser();
+      if (!currentUser) throw new Error('User profile not found');
+
+      const { data, error } = await supabase
+        .from('community_posts')
+        .insert({
+          user_id: user.id,
+          content: postData.content,
+          region: currentUser.region,
+          likes: 0,
+          comments: 0,
+          is_approved: true // Auto-approve for now
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return data;
+    } catch (error: any) {
+      console.error('Error creating community post:', error);
+      throw new Error(error.message || 'Failed to create post');
+    }
   }
 
-  static async getPostComments(postId: number): Promise<CommunityComment[]> {
-    const response = await authenticatedRequest('GET', `/api/community/posts/${postId}/comments`);
-    return response.json();
+  // Weather Data
+  static async getCurrentWeather(region?: string): Promise<any> {
+    try {
+      // Mock weather data for now - replace with actual weather API
+      return {
+        temperature: 28,
+        condition: 'Partly Cloudy',
+        humidity: 65,
+        windSpeed: 12,
+        visibility: 10,
+        feelsLike: 31,
+        location: region || 'Your Region',
+        uvIndex: 7
+      };
+    } catch (error: any) {
+      console.error('Error fetching weather:', error);
+      throw new Error(error.message || 'Failed to fetch weather data');
+    }
   }
 
-  static async likePost(postId: number): Promise<void> {
-    await authenticatedRequest('POST', `/api/community/posts/${postId}/like`);
+  static async getWeatherAlerts(region?: string): Promise<any[]> {
+    try {
+      let query = supabase
+        .from('weather_alerts')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+      if (region) {
+        query = query.eq('region', region);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      return data || [];
+    } catch (error: any) {
+      console.error('Error fetching weather alerts:', error);
+      throw new Error(error.message || 'Failed to fetch weather alerts');
+    }
   }
 
-  static async unlikePost(postId: number): Promise<void> {
-    await authenticatedRequest('DELETE', `/api/community/posts/${postId}/unlike`);
+  // Support Tickets
+  static async createSupportTicket(ticketData: any): Promise<any> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) throw new Error('Not authenticated');
+
+      const { data, error } = await supabase
+        .from('support_tickets')
+        .insert({
+          user_id: user.id,
+          subject: ticketData.subject,
+          message: ticketData.message,
+          category: ticketData.category,
+          priority: ticketData.priority,
+          status: 'open'
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return data;
+    } catch (error: any) {
+      console.error('Error creating support ticket:', error);
+      throw new Error(error.message || 'Failed to create support ticket');
+    }
   }
 
-  // Tontine invites
-  static async createTontineInvite(tontineId: number, data: { maxUses?: number; expiresAt?: string }): Promise<TontineInvite> {
-    const response = await authenticatedRequest('POST', '/api/tontine-invites', { tontineId, ...data });
-    return response.json();
+  static async getSupportTickets(): Promise<any[]> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) throw new Error('Not authenticated');
+
+      const { data, error } = await supabase
+        .from('support_tickets')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      return data || [];
+    } catch (error: any) {
+      console.error('Error fetching support tickets:', error);
+      throw new Error(error.message || 'Failed to fetch support tickets');
+    }
   }
 
-  static async joinTontineByCode(inviteCode: string): Promise<void> {
-    await authenticatedRequest('POST', '/api/tontine-invites/join', { inviteCode });
-  }
-
-  // User search for invites
-  static async searchUsers(query: string): Promise<User[]> {
-    const response = await authenticatedRequest('GET', `/api/users/search?q=${encodeURIComponent(query)}`);
-    return response.json();
-  }
-
-  // Direct invite by user ID
-  static async inviteUserToTontine(tontineId: number, userId: number): Promise<void> {
-    await authenticatedRequest('POST', `/api/tontines/${tontineId}/invite-user`, { userId });
-  }
-
-  // Admin API Methods
+  // Admin Functions (for super_admin role)
   static async getAdminStats(): Promise<any> {
-    const response = await authenticatedRequest('GET', '/api/admin/stats');
-    return response.json();
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) throw new Error('Not authenticated');
+
+      // Check if user is admin
+      const currentUser = await this.getCurrentUser();
+      if (!currentUser || !['admin', 'super_admin'].includes(currentUser.role)) {
+        throw new Error('Admin access required');
+      }
+
+      // Get various stats
+      const [usersCount, tontinesCount, postsCount, ticketsCount] = await Promise.all([
+        supabase.from('users').select('id', { count: 'exact', head: true }),
+        supabase.from('tontines').select('id', { count: 'exact', head: true }),
+        supabase.from('community_posts').select('id', { count: 'exact', head: true }),
+        supabase.from('support_tickets').select('id', { count: 'exact', head: true })
+      ]);
+
+      return {
+        totalUsers: usersCount.count || 0,
+        activeTontines: tontinesCount.count || 0,
+        totalPosts: postsCount.count || 0,
+        totalTickets: ticketsCount.count || 0,
+        totalRevenue: 0, // Calculate based on actual transactions
+        premiumUsers: 0 // Calculate based on user plans
+      };
+    } catch (error: any) {
+      console.error('Error fetching admin stats:', error);
+      throw new Error(error.message || 'Failed to fetch admin stats');
+    }
   }
 
   static async getPendingTontines(): Promise<any[]> {
-    const response = await authenticatedRequest('GET', '/api/admin/tontines/pending');
-    return response.json();
+    try {
+      const { data, error } = await supabase
+        .from('tontines')
+        .select(`
+          *,
+          leader:users!tontines_leader_id_fkey(name, phone),
+          members:tontine_members(
+            *,
+            user:users(name, phone)
+          )
+        `)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      return data || [];
+    } catch (error: any) {
+      console.error('Error fetching pending tontines:', error);
+      throw new Error(error.message || 'Failed to fetch pending tontines');
+    }
   }
 
   static async getPendingPrices(): Promise<any[]> {
-    const response = await authenticatedRequest('GET', '/api/admin/prices/pending');
-    return response.json();
+    try {
+      const { data, error } = await supabase
+        .from('market_prices')
+        .select(`
+          *,
+          submitted_by_user:users!market_prices_submitted_by_fkey(name, phone)
+        `)
+        .eq('is_verified', false)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      return data || [];
+    } catch (error: any) {
+      console.error('Error fetching pending prices:', error);
+      throw new Error(error.message || 'Failed to fetch pending prices');
+    }
   }
 
   static async getSuspendedUsers(): Promise<any[]> {
-    const response = await authenticatedRequest('GET', '/api/admin/users/suspended');
-    return response.json();
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('is_active', false)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      return data || [];
+    } catch (error: any) {
+      console.error('Error fetching suspended users:', error);
+      throw new Error(error.message || 'Failed to fetch suspended users');
+    }
   }
 
   static async getFlaggedPosts(): Promise<any[]> {
-    const response = await authenticatedRequest('GET', '/api/admin/posts/flagged');
-    return response.json();
+    try {
+      const { data, error } = await supabase
+        .from('community_posts')
+        .select(`
+          *,
+          user:users(name, phone, region)
+        `)
+        .eq('is_flagged', true)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      return data || [];
+    } catch (error: any) {
+      console.error('Error fetching flagged posts:', error);
+      throw new Error(error.message || 'Failed to fetch flagged posts');
+    }
   }
 
   static async adminAction(type: string, id: number, action: string): Promise<void> {
-    await authenticatedRequest('POST', `/api/admin/${type}/${id}/${action}`);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) throw new Error('Not authenticated');
+
+      // Check admin permissions
+      const currentUser = await this.getCurrentUser();
+      if (!currentUser || !['admin', 'super_admin'].includes(currentUser.role)) {
+        throw new Error('Admin access required');
+      }
+
+      let updateData: any = {};
+      let tableName = '';
+
+      switch (type) {
+        case 'tontine':
+          tableName = 'tontines';
+          updateData = {
+            status: action === 'approve' ? 'active' : 'rejected',
+            ...(action === 'approve' ? { approved_by: user.id, approved_at: new Date().toISOString() } : 
+                { rejected_by: user.id, rejected_at: new Date().toISOString() })
+          };
+          break;
+        case 'price':
+          tableName = 'market_prices';
+          updateData = {
+            is_verified: action === 'approve',
+            ...(action === 'approve' ? { verified_by: user.id, verified_at: new Date().toISOString() } : {})
+          };
+          break;
+        case 'user':
+          tableName = 'users';
+          updateData = {
+            is_active: action === 'unsuspend'
+          };
+          break;
+        case 'post':
+          tableName = 'community_posts';
+          updateData = {
+            is_approved: action === 'approve',
+            is_flagged: false
+          };
+          break;
+        default:
+          throw new Error('Invalid action type');
+      }
+
+      const { error } = await supabase
+        .from(tableName)
+        .update(updateData)
+        .eq('id', id);
+
+      if (error) throw error;
+
+      // Log admin action
+      await supabase
+        .from('admin_audit_logs')
+        .insert({
+          admin_id: user.id,
+          action: `${action}_${type}`,
+          entity_type: type,
+          entity_id: id,
+          details: { action, type, timestamp: new Date().toISOString() }
+        });
+
+    } catch (error: any) {
+      console.error('Error performing admin action:', error);
+      throw new Error(error.message || 'Failed to perform admin action');
+    }
   }
 
-  // Admin Support Ticket API
-  static async getAllSupportTickets(): Promise<SupportTicket[]> {
-    const response = await authenticatedRequest('GET', '/api/admin/support/tickets');
-    return response.json();
+  // Support Ticket Management (Admin)
+  static async getAllSupportTickets(): Promise<any[]> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) throw new Error('Not authenticated');
+
+      const currentUser = await this.getCurrentUser();
+      if (!currentUser || !['admin', 'super_admin'].includes(currentUser.role)) {
+        throw new Error('Admin access required');
+      }
+
+      const { data, error } = await supabase
+        .from('support_tickets')
+        .select(`
+          *,
+          user:users(name, phone, email)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      return data || [];
+    } catch (error: any) {
+      console.error('Error fetching all support tickets:', error);
+      throw new Error(error.message || 'Failed to fetch support tickets');
+    }
   }
 
-  static async updateSupportTicket(id: number, data: Partial<SupportTicket>): Promise<SupportTicket> {
-    const response = await authenticatedRequest('PATCH', `/api/admin/support/tickets/${id}`, data);
-    return response.json();
+  static async updateSupportTicket(id: number, updates: any): Promise<any> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) throw new Error('Not authenticated');
+
+      const { data, error } = await supabase
+        .from('support_tickets')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString(),
+          ...(updates.status === 'resolved' ? { resolved_at: new Date().toISOString() } : {})
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return data;
+    } catch (error: any) {
+      console.error('Error updating support ticket:', error);
+      throw new Error(error.message || 'Failed to update support ticket');
+    }
   }
 
-  // Support Ticket Notifications
-  static async getSupportNotifications(): Promise<SupportTicket[]> {
-    const response = await authenticatedRequest('GET', '/api/support/notifications');
-    return response.json();
-  }
-
-  // Admin Premium Plan Management
+  // Premium Plan Management
   static async getPremiumPlans(): Promise<any[]> {
-    const response = await authenticatedRequest('GET', '/api/admin/premium/plans');
-    return response.json();
+    try {
+      const { data, error } = await supabase
+        .from('admin_settings')
+        .select('*')
+        .like('setting_key', 'premium_plan_%')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      return data || [];
+    } catch (error: any) {
+      console.error('Error fetching premium plans:', error);
+      throw new Error(error.message || 'Failed to fetch premium plans');
+    }
   }
 
-  static async createPremiumPlan(data: any): Promise<any> {
-    const response = await authenticatedRequest('POST', '/api/admin/premium/plans', data);
-    return response.json();
+  static async createPremiumPlan(planData: any): Promise<any> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) throw new Error('Not authenticated');
+
+      const { data, error } = await supabase
+        .from('admin_settings')
+        .insert({
+          setting_key: `premium_plan_${planData.name}`,
+          setting_value: planData,
+          description: planData.description,
+          category: 'premium',
+          is_public: true,
+          updated_by: user.id
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return data;
+    } catch (error: any) {
+      console.error('Error creating premium plan:', error);
+      throw new Error(error.message || 'Failed to create premium plan');
+    }
   }
 
-  static async updatePremiumPlan(key: string, data: any): Promise<any> {
-    const response = await authenticatedRequest('PUT', `/api/admin/premium/plans/${key}`, data);
-    return response.json();
+  static async updatePremiumPlan(key: string, planData: any): Promise<any> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) throw new Error('Not authenticated');
+
+      const { data, error } = await supabase
+        .from('admin_settings')
+        .update({
+          setting_value: planData,
+          updated_by: user.id,
+          updated_at: new Date().toISOString()
+        })
+        .eq('setting_key', key)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return data;
+    } catch (error: any) {
+      console.error('Error updating premium plan:', error);
+      throw new Error(error.message || 'Failed to update premium plan');
+    }
   }
 
   static async deactivatePremiumPlan(key: string): Promise<any> {
-    const response = await authenticatedRequest('DELETE', `/api/admin/premium/plans/${key}`);
-    return response.json();
+    try {
+      const { data, error } = await supabase
+        .from('admin_settings')
+        .delete()
+        .eq('setting_key', key)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return data;
+    } catch (error: any) {
+      console.error('Error deactivating premium plan:', error);
+      throw new Error(error.message || 'Failed to deactivate premium plan');
+    }
   }
-}
-
-export async function getUser(id: string) {
-  const res = await fetch(`${API_BASE_URL}/api/users/${id}`);
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
-}
-
-export async function createUser(data: any) {
-  const res = await fetch(`${API_BASE_URL}/api/auth/register`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
-}
-
-export async function requestReset(data: any) {
-  const res = await fetch(`${API_BASE_URL}/api/auth/reset/initiate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
-}
-
-export async function getYields(region: string) {
-  const res = await fetch(`${API_BASE_URL}/api/yields?region=${encodeURIComponent(region)}`);
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
-}
-
-export async function insertYield(data: any) {
-  const res = await fetch(`${API_BASE_URL}/api/yields`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
-}
-
-export async function backupUser(data: any) {
-  const res = await fetch(`${API_BASE_URL}/api/backup-users`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
 }
